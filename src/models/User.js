@@ -24,7 +24,7 @@ const schema = new Schema(
     password: { type: String, trim: true, default: "" },
     role: {
       type: String,
-      enum: ["fleet-manager"],
+      enum: ["admin", "driver", "mechanic", "fleet-manager", "shop-owner"],
       trim: true
     },
     provider: {
