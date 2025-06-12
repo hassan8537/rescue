@@ -3,6 +3,7 @@ const User = require("../models/User");
 const userSchema = require("../schemas/user");
 const generateBearerToken = require("../utilities/bearer-token-generator");
 const bcrypt = require("bcrypt");
+const handlers = require("../utilities/handlers");
 
 class Service {
   constructor() {
