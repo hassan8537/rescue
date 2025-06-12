@@ -17,12 +17,6 @@ const connectToDatabase = async () => {
 
     await mongoose.connect(mongoURI, options);
 
-    require("../models/Chat");
-    require("../models/File");
-    require("../models/Notification");
-    require("../models/Otp");
-    require("../models/User");
-
     return handlers.logger.success({
       message: "MongoDB connected successfully."
     });

@@ -75,7 +75,7 @@ app.use(morgan("tiny"));
 app.use(adminSeeder);
 
 // controllers
-const chatController = require("./src/controllers/users/chat-controller");
+const chatController = require("./src/controllers/chat");
 
 // routes
 const userRoutes = require("./src/routes/index");
