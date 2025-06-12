@@ -5,7 +5,6 @@ const saltRounds = process.env.SALT_ROUNDS;
 
 const schema = new Schema(
   {
-    // Business Information
     businessLogo: { type: String, trim: true, default: "" },
     fleetName: { type: String, trim: true, default: "" },
     businessEmail: { type: String, trim: true, default: "" },
@@ -13,14 +12,13 @@ const schema = new Schema(
     website: { type: String, trim: true, default: "" },
     bio: { type: String, trim: true, default: "" },
 
-    // Personal Info
     image: { type: String, trim: true, default: "" },
     firstName: { type: String, trim: true, default: "" },
     lastName: { type: String, trim: true, default: "" },
     email: { type: String, trim: true, default: "" },
     phoneNumber: { type: String, trim: true, default: "" },
+    rememberMe: { type: Boolean, trim: true, default: false },
 
-    // Authentication & Account
     password: { type: String, trim: true, default: "" },
     role: {
       type: String,
@@ -37,7 +35,6 @@ const schema = new Schema(
     deviceToken: { type: String, trim: true, default: "" },
     sessionToken: { type: String, trim: true, default: "" },
 
-    // Location
     location: {
       name: { type: String, default: "" },
       type: { type: String, enum: ["Point"], default: "Point" },
@@ -48,7 +45,6 @@ const schema = new Schema(
       }
     },
 
-    // Legal & Preferences
     termsAndConditions: { type: Boolean, default: false },
     privacyPolicy: { type: Boolean, default: false },
     isVerified: { type: Boolean, default: false },
@@ -60,7 +56,6 @@ const schema = new Schema(
     isMerchantSetup: { type: Boolean, default: false },
     stripeMerchantId: { type: String, default: null },
 
-    // Vehicle/Driver Info
     fleetManagerId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -75,10 +70,24 @@ const schema = new Schema(
 
     vehicleUnit: { type: String, trim: true, default: null },
     assignVin: { type: Number, default: null },
-    driverLicense: { type: String, trim: true, default: null },
+    drivingLicense: { type: String, trim: true, default: null },
     driverBudget: { type: Number, default: 0 }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform(doc, ret) {
+        delete ret.password;
+        return ret;
+      }
+    },
+    toObject: {
+      transform(doc, ret) {
+        delete ret.password;
+        return ret;
+      }
+    }
+  }
 );
 
 // Password hashing middleware

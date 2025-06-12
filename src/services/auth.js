@@ -43,7 +43,7 @@ class Service {
 
   async signIn(req, res) {
     try {
-      const { email, password } = req.body;
+      const { email, password, rememberMe } = req.body;
 
       const existingUser = await this.user.findOne({
         email
@@ -71,6 +71,7 @@ class Service {
       const token = generateBearerToken({ _id: existingUser._id, res });
 
       existingUser.sessionToken = token;
+      existingUser.rememberMe = rememberMe;
       await existingUser.save();
       await existingUser.populate(userSchema.populate);
 
