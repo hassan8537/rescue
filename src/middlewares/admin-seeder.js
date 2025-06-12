@@ -24,10 +24,9 @@ const adminSeeder = async (req, res, next) => {
     handlers.logger.failed({ message: "Admin user created successfully" });
     return next();
   } catch (error) {
-    handlers.logger.failed({ message: error });
     return handlers.response.failed({
       res,
-      message: "Failed to seed admin"
+      message: error
     });
   }
 };
