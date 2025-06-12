@@ -13,7 +13,7 @@ class Service {
 
   async signUp(req, res) {
     try {
-      const { email, password, termsAndConditions } = req.body;
+      const { email, password, termsAndConditions, role } = req.body;
 
       if (await this.user.exists({ email })) {
         return handlers.response.failed({
@@ -26,7 +26,7 @@ class Service {
         email,
         password,
         termsAndConditions,
-        role: "fleet-manager"
+        role
       });
 
       await newUser.populate(userSchema.populate);

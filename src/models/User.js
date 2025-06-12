@@ -68,7 +68,7 @@ const schema = new Schema(
       default: null
     },
 
-    vehicleUnit: { type: String, trim: true, default: null },
+    vehiclePlateNumber: { type: String, trim: true, default: null },
     assignVin: { type: Number, default: null },
     drivingLicense: { type: String, trim: true, default: null },
     driverBudget: { type: Number, default: 0 }

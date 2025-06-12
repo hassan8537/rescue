@@ -155,7 +155,7 @@ class UserService {
 
       return handlers.response.success({
         res,
-        message: "Profile edited successfully",
+        message: "Success",
         data: editedUser
       });
     } catch (error) {

@@ -5,6 +5,8 @@ const app = express();
 const authRoutes = require("./auth");
 const chatRoutes = require("./chat");
 const profileRoutes = require("./profile");
+const bookingRoutes = require("./booking");
+const productRoutes = require("./product");
 
 // 🔹 Import Middlewares
 const authentication = require("../middlewares/authentication");
@@ -18,5 +20,7 @@ app.use("/api/v1/auth", authRoutes);
 // Using middlewares 1
 app.use("/api/v1/chats", middlewares, chatRoutes);
 app.use("/api/v1/profiles", middlewares, profileRoutes);
+app.use("/api/v1/bookings", middlewares, bookingRoutes);
+app.use("/api/v1/products", middlewares, productRoutes);
 
 module.exports = app;
