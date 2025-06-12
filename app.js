@@ -1,0 +1,153 @@
+// dotenv
+require("dotenv").config();
+
+// global variable
+global.rootDir = __dirname;
+
+// imports
+const fs = require("fs");
+const express = require("express");
+const session = require("express-session");
+const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+const morgan = require("morgan");
+const { Server } = require("socket.io");
+const connectToDatabase = require("./src/config/mongodb");
+const adminSeeder = require("./src/middlewares/admin-seeder");
+const handlers = require("./src/utilities/handlers");
+const path = require("path");
+
+// environments
+const port = process.env.PORT || 3000;
+const nodeEnv = process.env.NODE_ENV || "development";
+const secretKey = process.env.SECRET_KEY;
+const maxAge = Number(process.env.MAX_AGE) || 2592000000;
+const baseUrl = process.env.BASE_URL;
+
+const app = express();
+
+// static files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// keys
+const server =
+  nodeEnv === "production"
+    ? (() => {
+        try {
+          const options = {
+            key: fs.readFileSync(
+              "/etc/letsencrypt/live/client1.appsstaging.com/privkey.pem"
+            ),
+            cert: fs.readFileSync(
+              "/etc/letsencrypt/live/client1.appsstaging.com/cert.pem"
+            ),
+            ca: fs.readFileSync(
+              "/etc/letsencrypt/live/client1.appsstaging.com/chain.pem"
+            )
+          };
+          return require("https").createServer(options, app);
+        } catch (error) {
+          console.error(
+            "SSL certificate files are missing or incorrect:",
+            error
+          );
+          process.exit(1);
+        }
+      })()
+    : require("http").createServer(app);
+
+// middlewares
+app.use(
+  session({
+    secret: secretKey,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge }
+  })
+);
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(cors());
+app.use(morgan("tiny"));
+app.use(adminSeeder);
+
+// controllers
+const chatController = require("./src/controllers/users/chat-controller");
+
+// routes
+const userRoutes = require("./src/routes/index");
+app.use(userRoutes);
+
+// socket
+const io = new Server(server, {
+  cors: {
+    origin:
+      nodeEnv === "production" ? process.env.ALLOWED_ORIGINS.split(",") : "*",
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: nodeEnv === "production",
+    transports: ["websocket", "polling"],
+    allowEIO3: true
+  }
+});
+
+io.on("connection", async (socket) => {
+  handlers.logger.success({ message: `New socket connected: ${socket.id}` });
+
+  socket.on("new-chat", async ({ senderId, receiverId, text }) => {
+    try {
+      const newChat = await chatController.newChat({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        text
+      });
+
+      return socket.emit("response", newChat);
+    } catch (error) {
+      handlers.logger.error({ message: error });
+      return socket.emit(
+        "error",
+        handlers.event.error({
+          object_type: "error",
+          message: "Failed to send message"
+        })
+      );
+    }
+  });
+
+  socket.on("get-chats", async ({ senderId, receiverId }) => {
+    try {
+      const chats = await chatController.getChats({
+        sender_id: senderId,
+        receiver_id: receiverId
+      });
+
+      handlers.logger.success({ message: "Messages", data: chats });
+      return socket.emit(
+        "response",
+        handlers.event.success({
+          object_type: "chats",
+          message: "Messages",
+          data: chats
+        })
+      );
+    } catch (error) {
+      handlers.logger.error({ message: error });
+      return socket.emit(
+        "error",
+        handlers.event.error({
+          object_type: "error",
+          message: "Couldn't refresh messages"
+        })
+      );
+    }
+  });
+});
+
+// server
+server.listen(port, () => {
+  connectToDatabase();
+  handlers.logger.success({ message: `Spont Network is live at ${baseUrl}` });
+});
