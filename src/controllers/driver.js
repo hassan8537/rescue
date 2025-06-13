@@ -3,6 +3,10 @@ class Controller {
     this.service = require("../services/driver");
   }
 
+  async getDriverStatistics(req, res) {
+    await this.service.getDriverStatistics(req, res);
+  }
+
   async createDriver(req, res) {
     await this.service.createDriver(req, res);
   }

@@ -8,6 +8,8 @@ const uploadFields = upload.fields([
   { name: "drivingLicense" }
 ]);
 
+router.get("/statistics", controller.getDriverStatistics.bind(controller));
+
 router.post("/", uploadFields, controller.createDriver.bind(controller));
 
 router.post(

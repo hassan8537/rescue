@@ -1,10 +1,102 @@
 const User = require("../models/User");
 const userSchema = require("../schemas/user");
 const handlers = require("../utilities/handlers");
+const moment = require("moment");
 
 class Service {
   constructor() {
     this.user = User;
+  }
+
+  async getDriverStatistics(req, res) {
+    try {
+      const user = req.user;
+      const now = moment();
+
+      const month = req.query.month || now.format("MM"); // default: current month
+      const year = req.query.year || now.format("YYYY"); // default: current year
+
+      const currentMonth = moment(`${year}-${month}-01`);
+      const previousMonth = currentMonth.clone().subtract(1, "month");
+
+      const startOfCurrentMonth = currentMonth.startOf("month").toDate();
+      const endOfCurrentMonth = currentMonth.endOf("month").toDate();
+
+      const startOfPreviousMonth = previousMonth.startOf("month").toDate();
+      const endOfPreviousMonth = previousMonth.endOf("month").toDate();
+
+      const [currentTotal, currentActive, currentInactive] = await Promise.all([
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          createdAt: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }
+        }),
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          isActive: true,
+          createdAt: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }
+        }),
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          isActive: false,
+          createdAt: { $gte: startOfCurrentMonth, $lte: endOfCurrentMonth }
+        })
+      ]);
+
+      const [lastTotal, lastActive, lastInactive] = await Promise.all([
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          createdAt: { $gte: startOfPreviousMonth, $lte: endOfPreviousMonth }
+        }),
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          isActive: true,
+          createdAt: { $gte: startOfPreviousMonth, $lte: endOfPreviousMonth }
+        }),
+        this.user.countDocuments({
+          role: "driver",
+          fleetManagerId: user._id,
+          isActive: false,
+          createdAt: { $gte: startOfPreviousMonth, $lte: endOfPreviousMonth }
+        })
+      ]);
+
+      const getPercentageChange = (current, previous) => {
+        if (previous === 0) return current === 0 ? 0 : 100;
+        return Number(((current - previous) / previous) * 100).toFixed(2);
+      };
+
+      const statistics = {
+        current: {
+          totalDrivers: currentTotal,
+          totalActiveDrivers: currentActive,
+          totalInActiveDrivers: currentInactive
+        },
+        monthlyChangeFromLastMonth: {
+          totalDrivers: getPercentageChange(currentTotal, lastTotal),
+          totalActiveDrivers: getPercentageChange(currentActive, lastActive),
+          totalInActiveDrivers: getPercentageChange(
+            currentInactive,
+            lastInactive
+          )
+        }
+      };
+
+      return handlers.response.success({
+        res,
+        message: "Driver statistics fetched successfully",
+        data: statistics
+      });
+    } catch (error) {
+      return handlers.response.error({
+        res,
+        message: error.message || "Failed to fetch statistics"
+      });
+    }
   }
 
   async createDriver(req, res) {
@@ -185,6 +277,7 @@ class Service {
 
       const filterConditions = {
         role: "driver",
+        fleetManagerId: req.user._id,
         ...filters,
         ...searchFilter
       };
