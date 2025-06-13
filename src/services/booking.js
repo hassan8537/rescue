@@ -1,64 +1,83 @@
 const Booking = require("../models/Booking");
+const Notification = require("../models/Notification");
+const Quote = require("../models/Quote");
+const User = require("../models/User");
 const bookingSchema = require("../schemas/booking");
+const quoteSchema = require("../schemas/quote");
 const handlers = require("../utilities/handlers");
+const pagination = require("../utilities/pagination");
 
 class Service {
-  constructor() {
+  constructor(io) {
+    this.io = io;
+    this.user = User;
     this.booking = Booking;
+    this.notification = Notification;
+    this.quote = Quote;
+    this.bookingTimeouts = new Map();
   }
 
-  async createEmergencyServiceBooking(req, res) {
+  async joinRoom(socket, data) {
+    const objectType = "join-room";
+    try {
+      socket.join(data.userId);
+      const user = await this.user.findById(data.userId);
+      user.socketId = socket.id;
+      await user.save();
+      socket.emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Hello! I am in",
+          data: user._id
+        })
+      );
+    } catch (error) {
+      return socket.emit(
+        "error",
+        handlers.event.error({ objectType, message: error })
+      );
+    }
+  }
+
+  async createBooking(req, res) {
     try {
       const user = req.user;
-
-      console.log("req.body:", req.body);
-      console.log("req.files:", req.files);
-      console.log("User role:", user.role);
-
       const issueImages = req.files?.["issueImages"];
-
       const appRoles = ["mechanic", "driver"];
       const webRoles = ["fleet-manager", "shop-owner"];
-
       const isAppRole = appRoles.includes(user.role);
       const isWebRole = webRoles.includes(user.role);
-
-      console.log({ isAppRole, isWebRole });
-
-      const appPayload = {
-        ...(user._id && { userId: user._id }),
-        ...(req.body.vehiclePlateNumber && {
-          vehiclePlateNumber: req.body.vehiclePlateNumber
-        }),
-        ...(issueImages.length > 0 && {
-          issueImages: issueImages.map((file) => file?.path)
-        }),
-        ...(req.body.location && { location: req.body.location }),
-        ...(req.body.productsRequired && {
-          productsRequired: req.body.productsRequired
-        }),
-        ...(req.body.issueDescription && {
-          issueDescription: req.body.issueDescription
-        })
-      };
-
-      const webPayload = {};
-
-      console.log({ appPayload, webPayload });
 
       if (!isAppRole && !isWebRole) {
         return handlers.response.failed({
           res,
-          message: "Invalid role to edit profile"
+          message: "Invalid role to create booking"
         });
       }
 
-      const createPayload = {
-        ...(isAppRole ? appPayload : {}),
-        ...(isWebRole ? webPayload : {})
-      };
+      const body = req.body;
 
-      console.log("Final createPayload:", createPayload);
+      const createPayload = {
+        ...(user._id && { driverId: user._id }),
+        ...(body.vehiclePlateNumber && {
+          vehiclePlateNumber: body.vehiclePlateNumber
+        }),
+        ...(issueImages?.length > 0 && {
+          issueImages: issueImages.map((file) => file?.path)
+        }),
+        ...(body.location && {
+          location: body.location
+        }),
+        ...(body.productsRequired && {
+          productsRequired: Array.isArray(body.productsRequired)
+            ? body.productsRequired
+            : [body.productsRequired]
+        }),
+        ...(body.issueDescription && {
+          issueDescription: body.issueDescription
+        })
+      };
 
       if (Object.keys(createPayload).length === 0) {
         return handlers.response.failed({
@@ -67,14 +86,434 @@ class Service {
         });
       }
 
-      const createdUser = await this.booking.create(createPayload);
+      // 🔒 Check for existing pending booking by this driver
+      const existingPendingBooking = await this.booking.findOne({
+        driverId: user._id,
+        status: "pending"
+      });
 
-      await createdUser.populate(bookingSchema.populate);
+      if (existingPendingBooking) {
+        return handlers.response.failed({
+          res,
+          message: "You already have a pending booking"
+        });
+      }
+
+      const createdBooking = await this.booking.create(createPayload);
+      await createdBooking.populate(bookingSchema.populate);
+
+      return handlers.response.success({
+        res,
+        message: "Booking created successfully",
+        data: createdBooking
+      });
+    } catch (error) {
+      console.error("[createBooking] Error:", error.message);
+      return handlers.response.error({
+        res,
+        message: error.message
+      });
+    }
+  }
+
+  async sendBookingRequestToMechanics(socket, data) {
+    try {
+      const { bookingId, driverId } = data;
+      const radius = Number(process.env.RADIUS);
+      const objectType = "booking-request";
+      const maxDistance = radius * 1609.34;
+
+      console.log("[sendBookingRequestToMechanics] Data received:", data);
+
+      if (!bookingId || !driverId) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "error",
+          handlers.event.success({
+            objectType,
+            message: "Missing bookingId or driverId"
+          })
+        );
+      }
+
+      const booking = await this.booking
+        .findById(bookingId)
+        .populate(bookingSchema.populate);
+
+      if (!booking) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Booking not found"
+          })
+        );
+      }
+
+      const driver = await this.user.findById(driverId);
+      if (!driver) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Driver not found"
+          })
+        );
+      }
+
+      const mechanics = await this.user.find({
+        role: "mechanic",
+        isActive: true
+        // optional location filtering
+      });
+
+      if (!mechanics.length) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "No nearby mechanics found"
+          })
+        );
+      }
+
+      for (const mechanic of mechanics) {
+        socket.join(mechanic._id.toString());
+        this.io.to(mechanic._id.toString()).emit(
+          "response",
+          handlers.event.success({
+            objectType,
+            message: "A driver has requested a booking",
+            data: booking
+          })
+        );
+
+        if (mechanic.deviceToken) {
+          const driverName = `${driver.firstName} ${driver.lastName}`;
+          await this.notification.create({
+            senderId: driver._id,
+            receiverId: mechanic._id,
+            message: `${driverName} has requested an emergency booking`,
+            type: "Booking",
+            modelId: booking._id
+          });
+        }
+      }
+
+      const timeout = setTimeout(async () => {
+        try {
+          const current = await this.booking.findById(bookingId);
+          if (current?.status === "pending") {
+            await this.booking.findByIdAndDelete(bookingId);
+            console.log(
+              "[sendBookingRequestToMechanics] Booking expired:",
+              bookingId
+            );
+
+            socket.join(driver._id.toString());
+            this.io.to(driver._id.toString()).emit(
+              "response",
+              handlers.event.failed({
+                objectType,
+                message: "No mechanic responded. Booking expired."
+              })
+            );
+          }
+        } catch (err) {
+          console.error(
+            "[sendBookingRequestToMechanics] Timeout error:",
+            err.message
+          );
+          socket.join(driverId.toString());
+          return this.io.to(driverId.toString()).emit(
+            "response",
+            handlers.event.error({
+              message: `Timeout error: ${err.message}`
+            })
+          );
+        }
+      }, process.env.BOOKING_REQUEST_TIMEOUT);
+
+      this.bookingTimeouts.set(bookingId.toString(), timeout);
+      console.log(
+        "[sendBookingRequestToMechanics] Timeout set for booking:",
+        bookingId
+      );
+    } catch (err) {
+      console.error("[sendBookingRequestToMechanics] Error:", err.message);
+      socket.join(data?.driverId?.toString());
+      return this.io.to(data?.driverId?.toString()).emit(
+        "error",
+        handlers.event.error({
+          objectType: "booking-request",
+          message: `Unexpected error: ${err.message}`
+        })
+      );
+    }
+  }
+
+  async sendQuoteToDriver(socket, data) {
+    const objectType = "send-quote-to-driver";
+    try {
+      console.log("[sendQuoteToDriver] Invoked with:", data);
+
+      const { bookingId, mechanicId, estimatedTimeInHours } = data;
+
+      const booking = await this.booking.findOne({
+        _id: bookingId,
+        status: "pending"
+      });
+      if (!booking) {
+        socket.join(mechanicId.toString());
+        return this.io
+          .to(mechanicId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid booking ID" })
+          );
+      }
+
+      const mechanic = await this.user.findOne({
+        _id: mechanicId,
+        isActive: true
+      });
+      if (!mechanic) {
+        socket.join(mechanicId.toString());
+        return this.io.to(mechanicId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Invalid mechanic ID"
+          })
+        );
+      }
+
+      const driverId = booking.driverId;
+      const driver = await this.user.findOne({ _id: driverId, isActive: true });
+
+      if (!driver) {
+        socket.join(mechanicId.toString());
+        return this.io
+          .to(mechanicId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid driver ID" })
+          );
+      }
+
+      const payload = {
+        bookingId: booking._id,
+        mechanicId: mechanic._id,
+        totalTime: estimatedTimeInHours,
+        totalAmount: Number(estimatedTimeInHours) * Number(mechanic.hourlyRates)
+      };
+
+      const quote = await this.quote.findOne({
+        mechanicId: mechanic._id
+      });
+
+      if (quote) {
+        socket.join(mechanic._id.toString());
+        return this.io.to(mechanic._id.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "You have already sent quote to this booking"
+          })
+        );
+      }
+
+      const newQuote = await this.quote.create(payload);
+
+      await newQuote.populate(quoteSchema.populate);
+
+      socket.join(driver._id.toString());
+      this.io.to(driver._id.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Quote sent to driver",
+          data: newQuote
+        })
+      );
+    } catch (error) {
+      console.error("[sendQuoteToDriver] Error:", error.message);
+      const roomId = data?.mechanicId?.toString() || "unknown-room";
+      socket.join(roomId);
+      return this.io.to(roomId).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${error.message}`
+        })
+      );
+    }
+  }
+
+  async acceptMechanicQuote(socket, data) {
+    const objectType = "accept-mechanic-quote";
+    try {
+      const { quoteId, driverId } = data;
+
+      const quote = await this.quote.findById(quoteId);
+
+      if (!quote) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid quote ID" })
+          );
+      }
+
+      const booking = await this.booking.findOne({
+        _id: quote.bookingId,
+        status: "pending"
+      });
+      if (!booking) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid booking ID" })
+          );
+      }
+
+      const driver = await this.user.findOne({
+        _id: driverId,
+        isActive: true
+      });
+      if (!driver) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid driver ID" })
+          );
+      }
+
+      const mechanic = await this.user.findOne({
+        _id: quote.mechanicId,
+        isActive: true
+      });
+      if (!mechanic) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Invalid mechanic ID"
+          })
+        );
+      }
+
+      booking.mechanicId = quote.mechanicId;
+      booking.totalTime = quote.totalTime;
+      booking.totalAmount = quote.totalAmount;
+      booking.status = "accepted";
+      await booking.save();
+      await this.quote.deleteOne({ _id: quote._id });
+
+      socket.join(driverId.toString());
+      this.io
+        .to(driverId.toString())
+        .emit(
+          "response",
+          handlers.event.success({ objectType, message: "Quote accepted" })
+        );
+
+      socket.join(mechanic._id.toString());
+      return this.io.to(mechanic._id.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "The driver has accepted your quote"
+        })
+      );
+    } catch (error) {
+      console.error("[acceptQuote] Error:", error.message);
+      const roomId = data?.driverId?.toString() || "unknown-room";
+      socket.join(roomId);
+      return this.io.to(roomId).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${error.message}`
+        })
+      );
+    }
+  }
+
+  async getBookings(req, res) {
+    try {
+      const user = req.user;
+
+      const filters = {};
+
+      if (user.role === "shop-owner") {
+        filters.mechanicId = user._id;
+      } else if (user.role === "mechanic") {
+        filters.driverId = user._id;
+      }
+
+      return await pagination({
+        res,
+        table: "Bookings",
+        model: this.booking,
+        filters: filters,
+        page: req.query.page,
+        limit: req.query.limit,
+        populate: bookingSchema.populate
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
+  async getBookingById(req, res) {
+    try {
+      const booking = await this.booking
+        .findById(req.params.bookingId)
+        .populate(bookingSchema.populate);
+
+      if (!booking) {
+        return handlers.response.failed({ res, message: "Invalid booking ID" });
+      }
 
       return handlers.response.success({
         res,
         message: "Success",
-        data: createdUser
+        data: booking
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
+  async cancelBooking(req, res) {
+    try {
+      const { bookingId } = req.params;
+
+      const booking = await this.booking
+        .findById(bookingId)
+        .populate(bookingSchema.populate);
+
+      if (!booking)
+        return handlers.response.failed({ res, message: "Invalid booking ID" });
+
+      booking.status = "cancelled";
+      await booking.save();
+
+      return handlers.response.success({
+        res,
+        message: "Success",
+        data: booking
       });
     } catch (error) {
       return handlers.response.error({

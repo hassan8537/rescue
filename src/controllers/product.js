@@ -4,7 +4,7 @@ class Controller {
   }
 
   async createProduct(req, res) {
-    await this.service.createProduct(req, res);
+    await this.service.addProduct(req, res);
   }
 
   async updateProduct(req, res) {
@@ -13,6 +13,10 @@ class Controller {
 
   async getProducts(req, res) {
     await this.service.getProducts(req, res);
+  }
+
+  async getProductById(req, res) {
+    await this.service.getProductById(req, res);
   }
 
   async deleteProduct(req, res) {

@@ -6,29 +6,29 @@ const defaultValues = {
   unauthorized: { code: 403, status: 1 }
 };
 
-function log({ type, object_type, code, status, message, data }) {
-  console.info({ object_type, code, status, message, data });
+function log({ type, objectType, code, status, message, data }) {
+  console.info({ objectType, code, status, message, data });
 }
 
 function buildResponse(type) {
   const { code, status } = defaultValues[type];
-  return ({ res, message, data = null, object_type = null }) => {
-    log({ type, object_type, code, status, message, data });
+  return ({ res, message, data = null, objectType = null }) => {
+    log({ type, objectType, code, status, message, data });
     return res.status(code).send({ status, message, data });
   };
 }
 
 function buildLogger(type) {
   const { code, status } = defaultValues[type];
-  return ({ object_type, message, data = null }) => {
-    log({ type, object_type, code, status, message, data });
+  return ({ objectType, message, data = null }) => {
+    log({ type, objectType, code, status, message, data });
   };
 }
 
 function buildEvent(type) {
   const { code, status } = defaultValues[type];
-  return ({ object_type, message, data = null }) => ({
-    object_type,
+  return ({ objectType, message, data = null }) => ({
+    objectType,
     code,
     status,
     message,

@@ -18,7 +18,6 @@ const pagination = async ({
     let totalCount = 0;
 
     if (filters.location && filters.maxDistance) {
-      // Geo-based query
       const { location, maxDistance } = filters;
 
       const geoQuery = [
@@ -41,7 +40,6 @@ const pagination = async ({
 
       totalCount = (await model.aggregate(geoQuery)).length;
     } else {
-      // Standard pagination
       const query = model.find(filters).skip(skip).limit(pageSize).sort(sort);
 
       if (populate) {
@@ -61,10 +59,10 @@ const pagination = async ({
 
     const responseData = {
       results: data,
-      total_records: totalCount,
-      total_pages: Math.ceil(totalCount / pageSize),
-      current_page: pageNumber,
-      page_size: pageSize
+      totalRecords: totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      currentPage: pageNumber,
+      pageSize: pageSize
     };
 
     return handlers.response.success({

@@ -7,6 +7,7 @@ const schema = new Schema(
   {
     businessLogo: { type: String, trim: true, default: "" },
     fleetName: { type: String, trim: true, default: "" },
+    shopName: { type: String, trim: true, default: "" },
     businessEmail: { type: String, trim: true, default: "" },
     businessPhoneNumber: { type: String, trim: true, default: "" },
     website: { type: String, trim: true, default: "" },
@@ -18,6 +19,7 @@ const schema = new Schema(
     email: { type: String, trim: true, default: "" },
     phoneNumber: { type: String, trim: true, default: "" },
     rememberMe: { type: Boolean, trim: true, default: false },
+    hourlyRates: { type: Number, trim: true, default: 0 },
 
     password: { type: String, trim: true, default: "" },
     role: {
@@ -55,6 +57,7 @@ const schema = new Schema(
     isResetPasswordConfirmed: { type: Boolean, default: false },
     isMerchantSetup: { type: Boolean, default: false },
     stripeMerchantId: { type: String, default: null },
+    stripeCustomerId: { type: String, default: null },
 
     fleetManagerId: {
       type: Schema.Types.ObjectId,
@@ -69,9 +72,11 @@ const schema = new Schema(
     },
 
     vehiclePlateNumber: { type: String, trim: true, default: null },
-    assignVin: { type: Number, default: null },
+    assignVin: { type: String, default: null },
     drivingLicense: { type: String, trim: true, default: null },
-    driverBudget: { type: Number, default: 0 }
+    driverBudget: { type: Number, default: 0 },
+
+    socketId: { type: String, default: "" }
   },
   {
     timestamps: true,
@@ -102,6 +107,8 @@ schema.pre("save", async function (next) {
     next(error);
   }
 });
+
+schema.index({ location: "2dsphere" });
 
 const User = model("User", schema);
 module.exports = User;

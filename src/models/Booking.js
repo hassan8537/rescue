@@ -2,11 +2,10 @@ const { Schema, model } = require("mongoose");
 
 const schema = new Schema(
   {
-    userId: {
+    driverId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
-      trim: true
+      required: true
     },
     vehiclePlateNumber: {
       type: String,
@@ -14,12 +13,16 @@ const schema = new Schema(
       trim: true
     },
     issueImages: {
-      type: Array,
+      type: [String],
       default: []
     },
     location: {
       name: { type: String, default: "" },
-      type: { type: String, enum: ["Point"], default: "Point" },
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point"
+      },
       coordinates: {
         type: [Number],
         default: [0, 0],
@@ -27,17 +30,40 @@ const schema = new Schema(
       }
     },
     productsRequired: {
-      type: Array,
+      type: [Schema.Types.ObjectId],
       default: []
     },
     issueDescription: {
       type: String,
       default: ""
+    },
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "rejected",
+        "accepted",
+        "ongoing",
+        "completed",
+        "cancelled"
+      ],
+      default: "pending"
+    },
+    mechanicId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+    totalTime: {
+      type: Number,
+      default: 0
+    },
+    totalAmount: {
+      type: Number,
+      default: 0
     }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
 const Booking = model("Booking", schema);

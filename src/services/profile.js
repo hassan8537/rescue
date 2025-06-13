@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const userSchema = require("../schemas/user");
 const handlers = require("../utilities/handlers");
+const bcrypt = require("bcrypt");
 
 class UserService {
   constructor() {
@@ -25,65 +26,83 @@ class UserService {
     }
   }
 
-  async setUpProfile(req, res) {
+  async setUpMyProfile(req, res) {
     try {
-      const { body, user: currentUser } = req;
+      const user = req.user;
 
-      const requiredFields = [
-        "business_logo",
-        "fleetName",
-        "businessEmail",
-        "business_phoneNumber",
-        "website",
-        "bio"
-      ];
+      console.log("req.body:", req.body);
+      console.log("req.files:", req.files);
+      console.log("User role:", user.role);
 
-      const missingFields = requiredFields.filter((field) => !body[field]);
+      const image = req.files?.["image"]?.[0];
+      const drivingLicense = req.files?.["drivingLicense"]?.[0];
+      const businessLogo = req.files?.["businessLogo"]?.[0];
 
-      if (missingFields.length) {
-        const msg = `Missing required fields: ${missingFields.join(", ")}`;
-        handlers.logger.failed({ message: msg });
-        return handlers.response.failed({ res, message: msg });
-      }
+      const appRoles = ["mechanic", "driver"];
+      const webRoles = ["fleet-manager", "shop-owner"];
 
-      const accountExists = await this.account.exists({
-        user_id: currentUser._id
-      });
+      const isAppRole = appRoles.includes(user.role);
+      const isWebRole = webRoles.includes(user.role);
 
-      if (!currentUser.is_account_connected) {
-        return handlers.response.success({
+      console.log({ isAppRole, isWebRole });
+
+      const appPayload = {
+        ...(image && { image: image.path }),
+        ...(req.body.firstName && { firstName: req.body.firstName }),
+        ...(req.body.lastName && { lastName: req.body.lastName }),
+        ...(req.body.phoneNumber && { phoneNumber: req.body.phoneNumber }),
+        ...(drivingLicense && { drivingLicense: drivingLicense.path })
+      };
+
+      const webPayload = {
+        ...(businessLogo && { businessLogo: businessLogo.path }),
+        ...(req.body.fleetName && { fleetName: req.body.fleetName }),
+        ...(req.body.website && { website: req.body.website }),
+        ...(req.body.businessEmail && {
+          businessEmail: req.body.businessEmail
+        }),
+        ...(req.body.bio && { bio: req.body.bio }),
+        ...(req.body.location && { location: req.body.location }),
+        isProfileCompleted: true
+      };
+
+      console.log({ appPayload, webPayload });
+
+      if (!isAppRole && !isWebRole) {
+        return handlers.response.failed({
           res,
-          message: "Account is not connected"
+          message: "Invalid role to edit profile"
         });
       }
 
-      const profileData = {
-        business_logo: body.business_logo,
-        fleetName: body.fleetName,
-        businessEmail: body.businessEmail,
-        business_phoneNumber: body.business_phoneNumber,
-        location: body.location,
-        website: body.website,
-        bio: body.bio,
-        is_profile_completed: true
+      const editPayload = {
+        ...(isAppRole ? appPayload : {}),
+        ...(isWebRole ? webPayload : {})
       };
 
-      const profile = await this.user
-        .findByIdAndUpdate(currentUser._id, profileData, { new: true })
+      console.log("Final editPayload:", editPayload);
+
+      if (Object.keys(editPayload).length === 0) {
+        return handlers.response.failed({
+          res,
+          message: "No valid fields provided to edit"
+        });
+      }
+
+      const editedUser = await this.user
+        .findByIdAndUpdate(user._id, editPayload, { new: true })
         .populate(userSchema.populate);
 
-      handlers.logger.success({
-        message: "Profile setup successful",
-        data: profile
-      });
       return handlers.response.success({
         res,
-        message: "Profile setup successful",
-        data: profile
+        message: "Success",
+        data: editedUser
       });
     } catch (error) {
-      handlers.logger.error({ message: error.message });
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({
+        res,
+        message: error.message
+      });
     }
   }
 
@@ -204,29 +223,90 @@ class UserService {
 
   async deactivateAccount(req, res) {
     try {
-      const { user: currentUser, params } = req;
-      const query =
-        currentUser.role === "admin" && params._id
-          ? { _id: params._id }
-          : { _id: currentUser._id };
+      const { userId } = req.params;
 
-      const user = await this.user.findOne(query);
+      const user = await this.user.findById(userId);
       if (!user) {
         const msg = "User not found or already deleted";
-        handlers.logger.unavailable({ message: msg });
         return handlers.response.unavailable({ res, message: msg });
       }
 
-      user.is_active = false;
+      user.isActive = false;
       await user.save();
 
-      handlers.logger.success({ message: "Deactivated" });
       return handlers.response.success({ res, message: "Deactivated" });
     } catch (error) {
       handlers.logger.error({ message: error });
       return handlers.response.error({
         res,
-        message: "Failed to deactivate this account"
+        message: error
+      });
+    }
+  }
+
+  async activateAccount(req, res) {
+    try {
+      const { userId } = req;
+
+      const user = await this.user.findById(userId);
+
+      if (!user) {
+        const msg = "User not found or already deleted";
+        return handlers.response.unavailable({ res, message: msg });
+      }
+
+      user.isActive = true;
+      await user.save();
+
+      return handlers.response.success({ res, message: "Activated" });
+    } catch (error) {
+      handlers.logger.error({ message: error });
+      return handlers.response.error({
+        res,
+        message: error
+      });
+    }
+  }
+
+  async changePassword(req, res) {
+    try {
+      const { oldPassword, newPassword } = req.body;
+
+      if (!oldPassword || !newPassword) {
+        return handlers.response.failed({
+          res,
+          message: "Both old and new passwords are required"
+        });
+      }
+
+      const user = await this.user.findById(req.user._id);
+
+      if (!user) {
+        return handlers.response.failed({
+          res,
+          message: "User not found"
+        });
+      }
+
+      const isMatch = await bcrypt.compare(oldPassword, user.password);
+      if (!isMatch) {
+        return handlers.response.failed({
+          res,
+          message: "Old password is incorrect"
+        });
+      }
+
+      user.password = newPassword;
+      await user.save();
+
+      return handlers.response.success({
+        res,
+        message: "Success"
+      });
+    } catch (error) {
+      return handlers.response.error({
+        res,
+        message: error.message
       });
     }
   }

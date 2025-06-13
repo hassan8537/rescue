@@ -93,9 +93,13 @@ const io = new Server(server, {
   }
 });
 
+const bookingService = require("./src/services/booking");
+bookingService.io = io;
+
 io.on("connection", async (socket) => {
   handlers.logger.success({ message: `New socket connected: ${socket.id}` });
 
+  // chat sockets
   socket.on("new-chat", async ({ senderId, receiverId, text }) => {
     try {
       const newChat = await chatController.newChat({
@@ -110,7 +114,7 @@ io.on("connection", async (socket) => {
       return socket.emit(
         "error",
         handlers.event.error({
-          object_type: "error",
+          objectType: "error",
           message: "Failed to send message"
         })
       );
@@ -128,7 +132,7 @@ io.on("connection", async (socket) => {
       return socket.emit(
         "response",
         handlers.event.success({
-          object_type: "chats",
+          objectType: "chats",
           message: "Messages",
           data: chats
         })
@@ -138,11 +142,44 @@ io.on("connection", async (socket) => {
       return socket.emit(
         "error",
         handlers.event.error({
-          object_type: "error",
+          objectType: "error",
           message: "Couldn't refresh messages"
         })
       );
     }
+  });
+
+  // booking sockets
+  socket.on("join-room", async ({ userId }) => {
+    await bookingService.joinRoom(socket, { userId });
+  });
+
+  socket.on(
+    "send-booking-request-to-mechanics",
+    async ({ bookingId, driverId }) => {
+      await bookingService.sendBookingRequestToMechanics(socket, {
+        bookingId,
+        driverId
+      });
+    }
+  );
+
+  socket.on(
+    "send-quote-to-driver",
+    async ({ bookingId, mechanicId, estimatedTimeInHours }) => {
+      await bookingService.sendQuoteToDriver(socket, {
+        bookingId,
+        mechanicId,
+        estimatedTimeInHours
+      });
+    }
+  );
+
+  socket.on("accept-mechanic-quote", async ({ quoteId, driverId }) => {
+    await bookingService.acceptMechanicQuote(socket, {
+      quoteId,
+      driverId
+    });
   });
 });
 

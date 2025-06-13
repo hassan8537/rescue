@@ -4,83 +4,94 @@ const productSchema = require("../schemas/product");
 const handlers = require("../utilities/handlers");
 const pagination = require("../utilities/pagination");
 
-class Service {
+class ProductService {
   constructor() {
     this.user = User;
     this.product = Product;
   }
 
-  async createProduct(req, res) {
+  _buildProductPayload(body, media) {
+    return {
+      ...(body.title && { title: body.title }),
+      ...(media?.length && { media: media.map((f) => f.path) }),
+      ...(body.price && { price: body.price }),
+      ...(body.quantity && { quantity: body.quantity }),
+      ...(body.description && { description: body.description })
+    };
+  }
+
+  async _toggleProductStatus(req, res, isActive) {
     try {
-      const user = req.user;
-      const body = req.body;
+      const { user, params } = req;
+      const product = await this.product.findOne({
+        _id: params.productId,
+        userId: user._id
+      });
 
-      console.log("req.body:", req.body);
-      console.log("req.files:", req.files);
-      console.log("User role:", user.role);
+      if (!product) {
+        return handlers.response.failed({ res, message: "Product not found" });
+      }
 
-      const media = req.files?.["media"];
-      const allowedRole = "shop-owner";
+      product.isActive = isActive;
+      await product.save();
 
-      if (user.role !== allowedRole) {
+      return handlers.response.success({
+        res,
+        message: "Success",
+        data: product
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
+  async addProduct(req, res) {
+    try {
+      const { user, body, files } = req;
+      const media = files?.["media"];
+      if (user.role !== "shop-owner") {
         return handlers.response.failed({
           res,
           message: "Only shop owners are allowed to add products"
         });
       }
 
-      const existingProduct = await this.product.findOne({
+      const existing = await this.product.findOne({
         title: { $regex: `^${body.title}$`, $options: "i" }
       });
 
-      if (existingProduct) {
+      if (existing) {
         return handlers.response.failed({
           res,
           message: "A product with the same title already exists"
         });
       }
 
-      const createPayload = {
-        ...(user._id && { userId: user._id }),
-        ...(body.title && { title: body.title }),
-        ...(media?.length > 0 && {
-          media: media.map((file) => file?.path)
-        }),
-        ...(body.price && { price: body.price }),
-        ...(body.quantity && { quantity: body.quantity }),
-        ...(body.description && { description: body.description })
-      };
+      const payload = this._buildProductPayload(body, media);
+      payload.userId = user._id;
 
-      if (Object.keys(createPayload).length === 0) {
+      if (!Object.keys(payload).length) {
         return handlers.response.failed({
           res,
           message: "No valid fields provided to create"
         });
       }
 
-      const newProduct = await this.product.create(createPayload);
-
+      const product = await this.product.create(payload);
       return handlers.response.success({
         res,
-        message: "Product created successfully",
-        data: newProduct
+        message: "Success",
+        data: product
       });
     } catch (error) {
-      return handlers.response.error({
-        res,
-        message: error.message
-      });
+      return handlers.response.error({ res, message: error.message });
     }
   }
 
   async editProduct(req, res) {
     try {
-      const { user, body, params, files } = req;
+      const { user, body, files, params } = req;
       const { productId } = params;
-
-      console.log("req.body:", body);
-      console.log("req.files:", files);
-      console.log("User role:", user.role);
 
       if (user.role !== "shop-owner") {
         return handlers.response.failed({
@@ -95,19 +106,16 @@ class Service {
       });
 
       if (!product) {
-        return handlers.response.failed({
-          res,
-          message: "Product not found"
-        });
+        return handlers.response.failed({ res, message: "Product not found" });
       }
 
       if (body.title) {
-        const existingProduct = await this.product.findOne({
+        const exists = await this.product.findOne({
           _id: { $ne: productId },
           title: { $regex: `^${body.title}$`, $options: "i" }
         });
 
-        if (existingProduct) {
+        if (exists) {
           return handlers.response.failed({
             res,
             message: "Another product with the same title already exists"
@@ -116,29 +124,21 @@ class Service {
       }
 
       const media = files?.["media"];
+      const updatePayload = this._buildProductPayload(body, media);
 
-      const editPayload = {
-        ...(body.title && { title: body.title }),
-        ...(media?.length > 0 && { media: media.map((file) => file.path) }),
-        ...(body.price && { price: body.price }),
-        ...(body.quantity && { quantity: body.quantity }),
-        ...(body.description && { description: body.description })
-      };
-
-      if (Object.keys(editPayload).length === 0) {
+      if (!Object.keys(updatePayload).length) {
         return handlers.response.failed({
           res,
           message: "No valid fields provided to update"
         });
       }
 
-      Object.assign(product, editPayload);
-
+      Object.assign(product, updatePayload);
       await product.save();
 
       return handlers.response.success({
         res,
-        message: "Product updated successfully",
+        message: "Success",
         data: product
       });
     } catch (error) {
@@ -148,111 +148,75 @@ class Service {
 
   async deleteProduct(req, res) {
     try {
-      const { user: currentUser, params } = req;
-      const { productId } = params;
-
+      const { user, params } = req;
       const product = await this.product.findOneAndDelete({
-        _id: productId,
-        userId: currentUser._id
+        _id: params.productId,
+        userId: user._id
       });
 
       if (!product) {
-        return handlers.response.failed({
-          res,
-          message: "Product not found or already deleted"
-        });
+        return handlers.response.failed({ res, message: "Invalid product ID" });
       }
 
       return handlers.response.success({
         res,
-        message: "Product deleted successfully",
+        message: "Success",
         data: product
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error });
+      return handlers.response.error({ res, message: error.message });
     }
   }
 
   async getProducts(req, res) {
     try {
-      const { page = 1, limit = 10 } = req.query;
+      const userId = req.query.userId;
 
       const filters = {};
 
+      filters.userId = userId;
+
       return await pagination({
-        response: res,
+        res,
         table: "Products",
         model: this.product,
-        filters,
-        page,
-        limit,
-        sort,
+        filters: filters,
+        page: req.query.page,
+        limit: req.query.limit,
         populate: productSchema.populate
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error });
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
+  async getProductById(req, res) {
+    try {
+      const product = await this.product
+        .findById(req.params.productId)
+        .populate(productSchema.populate);
+
+      if (!product) {
+        return handlers.response.failed({ res, message: "Invalid product ID" });
+      }
+
+      return handlers.response.success({
+        res,
+        message: "Success",
+        data: product
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
     }
   }
 
   async deactivateProduct(req, res) {
-    try {
-      const { user: currentUser, params } = req;
-      const { productId } = params;
-
-      const product = await this.product.findOne({
-        _id: productId,
-        userId: currentUser._id
-      });
-
-      if (!product) {
-        return handlers.response.failed({
-          res,
-          message: "Product not found"
-        });
-      }
-
-      product.isActive = false;
-      await product.save();
-
-      return handlers.response.success({
-        res,
-        message: "Product deactivated",
-        data: product
-      });
-    } catch (error) {
-      return handlers.response.error({ res, message: error });
-    }
+    return this._toggleProductStatus(req, res, false);
   }
 
   async activateProduct(req, res) {
-    try {
-      const { user: currentUser, params } = req;
-      const { productId } = params;
-
-      const product = await this.product.findOne({
-        _id: productId,
-        userId: currentUser._id
-      });
-
-      if (!product) {
-        return handlers.response.failed({
-          res,
-          message: "Product not found"
-        });
-      }
-
-      product.isActive = true;
-      await product.save();
-
-      return handlers.response.success({
-        res,
-        message: "Product activated",
-        data: product
-      });
-    } catch (error) {
-      return handlers.response.error({ res, message: error });
-    }
+    return this._toggleProductStatus(req, res, true);
   }
 }
 
-module.exports = new Service();
+module.exports = new ProductService();

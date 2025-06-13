@@ -9,8 +9,23 @@ const uploadFields = upload.fields([
   { name: "businessLogo", maxCount: 1 }
 ]);
 
+router.post(
+  "/me/setup",
+  uploadFields,
+  controller.setUpMyProfile.bind(controller)
+);
+
 router.post("/me", uploadFields, controller.editMyProfile.bind(controller));
 
 router.get("/me", controller.getMyProfile.bind(controller));
+
+router.post("/:me/changepassword", controller.changePassword.bind(controller));
+
+router.post(
+  "/:userId/deactivate",
+  controller.deactivateAccount.bind(controller)
+);
+
+router.post("/:userId/activate", controller.activateAccount.bind(controller));
 
 module.exports = router;

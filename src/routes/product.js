@@ -15,15 +15,18 @@ router.post(
 
 router.get("/", controller.getProducts.bind(controller));
 
-router.get("/:productId", controller.getProducts.bind(controller));
+router.get("/:productId", controller.getProductById.bind(controller));
 
 router.delete("/:productId", controller.deleteProduct.bind(controller));
 
-router.get(
+router.post(
   "/:productId/deactivate",
   controller.deactivateProduct.bind(controller)
 );
 
-router.get("/:productId/activate", controller.activateProduct.bind(controller));
+router.post(
+  "/:productId/activate",
+  controller.activateProduct.bind(controller)
+);
 
 module.exports = router;
