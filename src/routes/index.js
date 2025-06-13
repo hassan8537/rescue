@@ -11,6 +11,7 @@ const productRoutes = require("./product");
 const accountRoutes = require("./account");
 const driverRoutes = require("./driver");
 const contentRoutes = require("./content");
+const notificationRoutes = require("./notification");
 
 // 🔹 Import Middlewares
 const authentication = require("../middlewares/authentication");
@@ -30,5 +31,6 @@ app.use("/api/v1/products", middlewares, productRoutes);
 app.use("/api/v1/accounts", middlewares, accountRoutes);
 app.use("/api/v1/drivers", middlewares, driverRoutes);
 app.use("/api/v1/contents", middlewares, contentRoutes);
+app.use("/api/v1/notifications", middlewares, notificationRoutes);
 
 module.exports = app;
