@@ -26,6 +26,10 @@ class Controller {
   async changePassword(req, res) {
     await this.service.changePassword(req, res);
   }
+
+  async getAdmin(req, res) {
+    await this.service.getAdmin(req, res);
+  }
 }
 
 module.exports = new Controller();

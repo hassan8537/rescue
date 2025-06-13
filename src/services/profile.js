@@ -310,6 +310,21 @@ class UserService {
       });
     }
   }
+
+  async getAdmin(req, res) {
+    try {
+      const admin = await this.user.findOne({ role: "admin" });
+
+      return handlers.response.success({
+        res,
+        message: "Success",
+        data: admin
+      });
+    } catch (error) {
+      handlers.logger.error({ message: error });
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
 }
 
 module.exports = new UserService();

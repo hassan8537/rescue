@@ -19,6 +19,8 @@ router.post("/me", uploadFields, controller.editMyProfile.bind(controller));
 
 router.get("/me", controller.getMyProfile.bind(controller));
 
+router.get("/admin", controller.getAdmin.bind(controller));
+
 router.post("/:me/changepassword", controller.changePassword.bind(controller));
 
 router.post(

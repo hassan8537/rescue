@@ -10,6 +10,7 @@ const bookingRoutes = require("./booking");
 const productRoutes = require("./product");
 const accountRoutes = require("./account");
 const driverRoutes = require("./driver");
+const contentRoutes = require("./content");
 
 // 🔹 Import Middlewares
 const authentication = require("../middlewares/authentication");
@@ -28,5 +29,6 @@ app.use("/api/v1/bookings", middlewares, bookingRoutes);
 app.use("/api/v1/products", middlewares, productRoutes);
 app.use("/api/v1/accounts", middlewares, accountRoutes);
 app.use("/api/v1/drivers", middlewares, driverRoutes);
+app.use("/api/v1/contents", middlewares, contentRoutes);
 
 module.exports = app;
