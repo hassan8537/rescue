@@ -450,6 +450,88 @@ class Service {
     }
   }
 
+  async rejectMechanicQuote(socket, data) {
+    const objectType = "reject-mechanic-quote";
+    try {
+      const { quoteId, driverId } = data;
+
+      const quote = await this.quote.findById(quoteId);
+      if (!quote) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid quote ID" })
+          );
+      }
+
+      const booking = await this.booking.findOne({
+        _id: quote.bookingId,
+        status: "pending"
+      });
+      if (!booking) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid booking ID" })
+          );
+      }
+
+      const driver = await this.user.findOne({
+        _id: driverId,
+        isActive: true
+      });
+      if (!driver) {
+        socket.join(driverId.toString());
+        return this.io
+          .to(driverId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid driver ID" })
+          );
+      }
+
+      const mechanic = await this.user.findOne({
+        _id: quote.mechanicId,
+        isActive: true
+      });
+      if (!mechanic) {
+        socket.join(driverId.toString());
+        return this.io.to(driverId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Invalid mechanic ID"
+          })
+        );
+      }
+
+      await this.quote.deleteOne({ _id: quote._id });
+
+      socket.join(driverId.toString());
+      this.io
+        .to(driverId.toString())
+        .emit(
+          "response",
+          handlers.event.success({ objectType, message: "Quote rejected" })
+        );
+    } catch (error) {
+      console.error("[rejectQuote] Error:", error.message);
+      const roomId = data?.driverId?.toString() || "unknown-room";
+      socket.join(roomId);
+      return this.io.to(roomId).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${error.message}`
+        })
+      );
+    }
+  }
+
   async getBookings(req, res) {
     try {
       const user = req.user;

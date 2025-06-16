@@ -45,7 +45,8 @@ const schema = new Schema(
         "accepted",
         "ongoing",
         "completed",
-        "cancelled"
+        "cancelled",
+        "arriving"
       ],
       default: "pending"
     },

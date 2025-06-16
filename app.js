@@ -181,6 +181,13 @@ io.on("connection", async (socket) => {
       driverId
     });
   });
+
+  socket.on("reject-mechanic-quote", async ({ quoteId, driverId }) => {
+    await bookingService.rejectMechanicQuote(socket, {
+      quoteId,
+      driverId
+    });
+  });
 });
 
 // server
