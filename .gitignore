@@ -10,6 +10,7 @@ dist/
 .env.production
 package.json
 package-lock.json
+rigrescue-b18c8-firebase-adminsdk-fbsvc-de7ecee509.json
 
 # Compiled Java class files
 *.class

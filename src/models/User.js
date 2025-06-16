@@ -59,6 +59,8 @@ const schema = new Schema(
     stripeMerchantId: { type: String, default: null },
     stripeCustomerId: { type: String, default: null },
 
+    avgRating: { type: Number, default: 0 },
+
     fleetManagerId: {
       type: Schema.Types.ObjectId,
       ref: "User",

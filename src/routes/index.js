@@ -13,6 +13,7 @@ const driverRoutes = require("./driver");
 const contentRoutes = require("./content");
 const notificationRoutes = require("./notification");
 const requestRoutes = require("./request");
+const reviewRoutes = require("./review");
 
 // 🔹 Import Middlewares
 const authentication = require("../middlewares/authentication");
@@ -34,5 +35,6 @@ app.use("/api/v1/drivers", middlewares, driverRoutes);
 app.use("/api/v1/contents", middlewares, contentRoutes);
 app.use("/api/v1/notifications", middlewares, notificationRoutes);
 app.use("/api/v1/requests", middlewares, requestRoutes);
+app.use("/api/v1/reviews", middlewares, reviewRoutes);
 
 module.exports = app;

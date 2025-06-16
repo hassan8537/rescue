@@ -6,15 +6,21 @@ const schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       trim: true,
-      default: null
+      required: true
     },
     receiverId: {
       type: Schema.Types.ObjectId,
       ref: "User",
       trim: true,
-      default: null
+      required: true
     },
-    text: {
+    rating: {
+      type: Number,
+      max: 5,
+      min: 0,
+      default: 0
+    },
+    review: {
       type: String,
       trim: true,
       default: ""
