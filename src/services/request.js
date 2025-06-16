@@ -32,6 +32,19 @@ class Service {
           message: "You do not belong to any fleet"
         });
 
+      const pendingBudgetRequest = await this.request.findOne({
+        senderId: user._id,
+        receiverId: user.fleetManagerId,
+        type: "budget",
+        status: "pending"
+      });
+
+      if (pendingBudgetRequest)
+        return handlers.response.failed({
+          res,
+          message: "A budget request is already pending"
+        });
+
       const newBudgetRequest = await this.request.create({
         senderId: user._id,
         receiverId: user.fleetManagerId,
@@ -61,24 +74,28 @@ class Service {
   async getBudgetRequests(req, res) {
     try {
       const user = req.user;
-
       const { page, limit } = req.query;
 
-      if (user.role !== "fleet-manager")
+      const filters = { type: "budget" };
+
+      if (user.role === "fleet-manager") {
+        filters.receiverId = user._id;
+      } else if (user.role === "driver") {
+        filters.senderId = user._id;
+      } else {
         return handlers.response.failed({
           res,
-          message: "Only fleet managers can view budget requests"
+          message: `Only ${user.role}s can view budget requests`
         });
-
-      const filters = { receiverId: user._id, type: "budget" };
+      }
 
       return await pagination({
         res,
         table: "Requests",
         model: this.request,
         filters: filters,
-        page: page,
-        limit: limit,
+        page,
+        limit,
         populate: requestSchema.populate
       });
     } catch (error) {
@@ -123,16 +140,16 @@ class Service {
         });
       }
 
-      const receiver = await this.user.findById(request.receiverId);
+      const driver = await this.user.findById(request.senderId);
 
-      if (!receiver)
+      if (!driver)
         return handlers.response.failed({
           res,
           message: "You cannot approve budget request of this driver"
         });
 
-      receiver.driverBudget += Number(request.amount);
-      await receiver.save();
+      driver.driverBudget += Number(request.amount);
+      await driver.save();
 
       request.status = "approved";
       await request.save();
