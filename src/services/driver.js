@@ -283,7 +283,7 @@ class Service {
         });
       }
 
-      driver.driverBudget = Number(budget) + driver.driverBudget;
+      driver.driverBudget += Number(budget);
 
       await driver.save();
 

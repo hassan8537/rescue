@@ -13,7 +13,8 @@ class Service {
 
   async signUp(req, res) {
     try {
-      const { email, password, termsAndConditions, role } = req.body;
+      const { email, password, termsAndConditions, role, deviceToken } =
+        req.body;
 
       if (await this.user.exists({ email })) {
         return handlers.response.failed({
@@ -23,10 +24,11 @@ class Service {
       }
 
       const newUser = await this.user.create({
+        role,
         email,
         password,
-        termsAndConditions,
-        role
+        deviceToken,
+        termsAndConditions
       });
 
       await newUser.populate(userSchema.populate);
@@ -43,7 +45,7 @@ class Service {
 
   async signIn(req, res) {
     try {
-      const { email, password, rememberMe } = req.body;
+      const { email, password, rememberMe, deviceToken } = req.body;
 
       const existingUser = await this.user.findOne({
         email
@@ -72,6 +74,7 @@ class Service {
 
       existingUser.sessionToken = token;
       existingUser.rememberMe = rememberMe;
+      existingUser.deviceToken = deviceToken;
       await existingUser.save();
       await existingUser.populate(userSchema.populate);
 
@@ -79,52 +82,6 @@ class Service {
         res,
         message: "Signed in!",
         data: existingUser
-      });
-    } catch (error) {
-      return handlers.response.error({ res, message: error.message });
-    }
-  }
-
-  async socialSignIn(req, res) {
-    try {
-      const {
-        firstName,
-        lastName,
-        emailAddress,
-        provider,
-        socialToken,
-        deviceToken
-      } = req.body;
-
-      let filters = { provider };
-      if (emailAddress) {
-        filters.email_address = emailAddress;
-      }
-
-      let user = await this.user.findOne(filters);
-
-      if (!user) {
-        user = new this.user({
-          firstName,
-          lastName,
-          email,
-          provider,
-          deviceToken
-        });
-      }
-
-      const token = generateBearerToken({ _id: user._id, res });
-
-      user.deviceToken = deviceToken;
-      user.socialToken = socialToken;
-      user.sessionToken = token;
-      await user.save();
-      await user.populate(userSchema.populate);
-
-      return handlers.response.success({
-        res,
-        message: "Signed in!",
-        data: user
       });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });

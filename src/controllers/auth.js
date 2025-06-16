@@ -11,10 +11,6 @@ class Controller {
     await this.service.signIn(req, res);
   }
 
-  async socialSignIn(req, res) {
-    await this.service.socialSignIn(req, res);
-  }
-
   async forgotPassword(req, res) {
     await this.service.forgotPassword(req, res);
   }
