@@ -18,6 +18,10 @@ class Controller {
   async resetPassword(req, res) {
     await this.service.resetPassword(req, res);
   }
+
+  async verifyEmailAddress(req, res) {
+    await this.service.verifyEmailAddress(req, res);
+  }
 }
 
 module.exports = new Controller();

@@ -10,4 +10,6 @@ router.post("/forgotpassword", controller.forgotPassword.bind(controller));
 
 router.post("/resetpassword", controller.resetPassword.bind(controller));
 
+router.post("/verify", controller.verifyEmailAddress.bind(controller));
+
 module.exports = router;

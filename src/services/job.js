@@ -18,13 +18,34 @@ class Service {
   async getJobs(req, res) {
     try {
       const user = req.user;
+      const filters = { ...req.query };
 
-      const filters = {};
-
-      if (user.role === "shop-owner") {
-        filters.mechanicId = user._id;
-      } else if (user.role === "mechanic") {
+      if (user.role === "driver") {
         filters.driverId = user._id;
+      } else if (user.role === "mechanic") {
+        filters.mechanicId = user._id;
+      } else if (user.role === "shop-owner") {
+        const mechanics = await this.user.find(
+          {
+            role: "mechanic",
+            shopOwnerId: user._id
+          },
+          "_id"
+        );
+
+        const mechanicIds = mechanics.map((m) => m._id);
+        filters.mechanicId = { $in: mechanicIds };
+      } else if (user.role === "fleet-manager") {
+        const drivers = await this.user.find(
+          {
+            role: "driver",
+            fleetManagerId: user._id
+          },
+          "_id"
+        );
+
+        const driverIds = drivers.map((d) => d._id);
+        filters.driverId = { $in: driverIds };
       }
 
       return await pagination({
@@ -37,27 +58,28 @@ class Service {
         populate: bookingSchema.populate
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
     }
   }
 
   async getJobById(req, res) {
     try {
-      const booking = await this.booking
-        .findById(req.params.bookingId)
+      // Note: Booking is Job here, don't be confused
+      const job = await this.booking
+        .findById(req.params.jobId)
         .populate(bookingSchema.populate);
 
-      if (!booking) {
-        return handlers.response.failed({ res, message: "Invalid booking ID" });
+      if (!job) {
+        return handlers.response.failed({ res, message: "Invalid job ID" });
       }
 
       return handlers.response.success({
         res,
         message: "Success",
-        data: booking
+        data: job
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
     }
   }
 }

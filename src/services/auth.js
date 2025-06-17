@@ -39,7 +39,7 @@ class Service {
         data: newUser
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
     }
   }
 
@@ -84,7 +84,7 @@ class Service {
         data: existingUser
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
     }
   }
 
@@ -134,7 +134,7 @@ class Service {
         data: existingUser
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
     }
   }
 
@@ -191,7 +191,42 @@ class Service {
         data: existingUser
       });
     } catch (error) {
-      return handlers.response.error({ res, message: error.message });
+      return handlers.response.error({ res, message: error });
+    }
+  }
+
+  async verifyEmailAddress(req, res) {
+    try {
+      const { email, code } = req.body;
+
+      const user = await this.user.findOne({ email });
+
+      if (!user)
+        return handlers.response.failed({
+          res,
+          message: "Invalid email address"
+        });
+
+      const otp = await this.otp.findOne({
+        userId: user._id,
+        type: "reset-password",
+        code: code
+      });
+
+      if (!otp)
+        return handlers.response.failed({
+          res,
+          message: "Invalid verification code"
+        });
+
+      user.isResetPasswordConfirmed = true;
+      await user.save();
+
+      await this.otp.findOneAndDelete(otp._id);
+
+      return handlers.response.success({ res, message: "Success" });
+    } catch (error) {
+      return handlers.response.error({ res, message: error });
     }
   }
 }

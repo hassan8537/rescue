@@ -108,8 +108,6 @@ io.on("connection", async (socket) => {
         text
       });
 
-      console.log({ newChat });
-
       socket.emit("response", newChat);
       return io.to(receiverId.toString()).emit("response", newChat);
     } catch (error) {

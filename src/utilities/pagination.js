@@ -53,7 +53,7 @@ const pagination = async ({
     if (!data.length) {
       return handlers.response.unavailable({
         res,
-        message: `No ${table.toLowerCase()} found.`
+        message: `No ${table.toLowerCase()} yet.`
       });
     }
 
