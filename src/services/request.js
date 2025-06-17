@@ -1,9 +1,11 @@
 const Notification = require("../models/Notification");
 const Request = require("../models/Request");
 const User = require("../models/User");
+const notificationSchema = require("../schemas/notification");
 const requestSchema = require("../schemas/request");
 const handlers = require("../utilities/handlers");
 const pagination = require("../utilities/pagination");
+const sendPushNotification = require("../utilities/send-push-notification");
 
 class Service {
   constructor() {
@@ -15,52 +17,89 @@ class Service {
   async sendBudgetRequest(req, res) {
     try {
       const user = req.user;
-
-      const { firstName, lastName } = user;
-
+      const { firstName, lastName, role, fleetManagerId, _id: userId } = user;
       const { reason, amount } = req.body;
 
-      if (user.role !== "driver")
+      // Only drivers can send budget requests
+      if (role !== "driver") {
         return handlers.response.failed({
           res,
           message: "Only drivers can send budget request"
         });
+      }
 
-      if (!user.fleetManagerId)
+      // Driver must belong to a fleet
+      if (!fleetManagerId) {
         return handlers.response.failed({
           res,
           message: "You do not belong to any fleet"
         });
+      }
 
+      // Check for existing pending budget request
       const pendingBudgetRequest = await this.request.findOne({
-        senderId: user._id,
-        receiverId: user.fleetManagerId,
+        senderId: userId,
+        receiverId: fleetManagerId,
         type: "budget",
         status: "pending"
       });
 
-      if (pendingBudgetRequest)
+      if (pendingBudgetRequest) {
         return handlers.response.failed({
           res,
           message: "A budget request is already pending"
         });
+      }
 
+      // Create new budget request
       const newBudgetRequest = await this.request.create({
-        senderId: user._id,
-        receiverId: user.fleetManagerId,
+        senderId: userId,
+        receiverId: fleetManagerId,
         type: "budget",
-        reason: reason,
-        amount: amount
+        reason,
+        amount
       });
 
-      await this.notification.create({
-        senderId: user._id,
-        receiverId: user.fleetManagerId,
+      // Create new notification
+      const newNotification = await this.notification.create({
+        senderId: userId,
+        receiverId: fleetManagerId,
         message: `${firstName} ${lastName} has requested a budget`,
         type: "Request",
         modelId: newBudgetRequest._id
       });
 
+      // Populate necessary fields
+      await newNotification.populate(notificationSchema.populate);
+      const {
+        senderId,
+        receiverId,
+        message,
+        type,
+        _id: modelId
+      } = newNotification;
+
+      // Send push notification if deviceToken exists
+      if (receiverId.deviceToken) {
+        const notificationPayload = {
+          deviceToken: receiverId.deviceToken,
+          title: "New notification",
+          body: message,
+          data: {
+            senderImage: senderId.image?.toString() || "",
+            senderName: `${senderId.firstName} ${senderId.lastName}`,
+            receiverImage: receiverId.image?.toString() || "",
+            receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
+            modelId: modelId.toString(),
+            type: type || "",
+            message: message || ""
+          }
+        };
+
+        await sendPushNotification(notificationPayload);
+      }
+
+      // Respond with success
       return handlers.response.success({
         res,
         message: "Success",
@@ -106,7 +145,6 @@ class Service {
   async approveBudgetRequest(req, res) {
     try {
       const user = req.user;
-
       const { requestId } = req.params;
 
       const request = await this.request.findById(requestId);
@@ -126,19 +164,17 @@ class Service {
           message: "You cannot approve this budget request"
         });
 
-      if (request.status === "approved") {
+      if (request.status === "approved")
         return handlers.response.failed({
           res,
           message: "Budget request already approved"
         });
-      }
 
-      if (request.status === "rejected") {
+      if (request.status === "rejected")
         return handlers.response.failed({
           res,
           message: "Budget request already rejected"
         });
-      }
 
       const driver = await this.user.findById(request.senderId);
 
@@ -148,16 +184,51 @@ class Service {
           message: "You cannot approve budget request of this driver"
         });
 
+      // Approve and update driver's budget
       driver.budget += Number(request.amount);
       await driver.save();
 
       request.status = "approved";
       await request.save();
 
-      return handlers.response.success({
-        res,
-        message: "Success"
+      // Create notification
+      const newNotification = await this.notification.create({
+        senderId: user._id,
+        receiverId: driver._id,
+        message: `Your budget request has been approved by ${user.firstName} ${user.lastName}`,
+        type: "BudgetApproval",
+        modelId: request._id
       });
+
+      await newNotification.populate(notificationSchema.populate);
+      const {
+        senderId,
+        receiverId,
+        message,
+        type,
+        _id: modelId
+      } = newNotification;
+
+      if (receiverId.deviceToken) {
+        const notificationPayload = {
+          deviceToken: receiverId.deviceToken,
+          title: "Budget Approved",
+          body: message,
+          data: {
+            senderImage: senderId.image?.toString() || "",
+            senderName: `${senderId.firstName} ${senderId.lastName}`,
+            receiverImage: receiverId.image?.toString() || "",
+            receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
+            modelId: modelId.toString(),
+            type: type || "",
+            message: message || ""
+          }
+        };
+
+        await sendPushNotification(notificationPayload);
+      }
+
+      return handlers.response.success({ res, message: "Success" });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });
     }
@@ -166,7 +237,6 @@ class Service {
   async rejectBudgetRequest(req, res) {
     try {
       const user = req.user;
-
       const { requestId } = req.params;
 
       const request = await this.request.findById(requestId);
@@ -186,27 +256,62 @@ class Service {
           message: "You cannot reject this budget request"
         });
 
-      if (request.status === "approved") {
+      if (request.status === "approved")
         return handlers.response.failed({
           res,
           message: "Budget request already approved"
         });
-      }
 
-      if (request.status === "rejected") {
+      if (request.status === "rejected")
         return handlers.response.failed({
           res,
           message: "Budget request already rejected"
         });
-      }
 
       request.status = "rejected";
       await request.save();
 
-      return handlers.response.success({
-        res,
-        message: "Success"
-      });
+      const driver = await this.user.findById(request.senderId);
+
+      if (driver) {
+        const newNotification = await this.notification.create({
+          senderId: user._id,
+          receiverId: driver._id,
+          message: `Your budget request has been rejected by ${user.firstName} ${user.lastName}`,
+          type: "BudgetRejection",
+          modelId: request._id
+        });
+
+        await newNotification.populate(notificationSchema.populate);
+        const {
+          senderId,
+          receiverId,
+          message,
+          type,
+          _id: modelId
+        } = newNotification;
+
+        if (receiverId.deviceToken) {
+          const notificationPayload = {
+            deviceToken: receiverId.deviceToken,
+            title: "Budget Rejected",
+            body: message,
+            data: {
+              senderImage: senderId.image?.toString() || "",
+              senderName: `${senderId.firstName} ${senderId.lastName}`,
+              receiverImage: receiverId.image?.toString() || "",
+              receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
+              modelId: modelId.toString(),
+              type: type || "",
+              message: message || ""
+            }
+          };
+
+          await sendPushNotification(notificationPayload);
+        }
+      }
+
+      return handlers.response.success({ res, message: "Success" });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });
     }
@@ -215,53 +320,89 @@ class Service {
   async sendProductRequest(req, res) {
     try {
       const user = req.user;
-
-      const { firstName, lastName } = user;
-
+      const { firstName, lastName, role, shopOwnerId, _id: userId } = user;
       const { productName, quantityNeeded, justification } = req.body;
 
-      if (user.role !== "mechanic")
+      // Only mechanics can send product requests
+      if (role !== "mechanic") {
         return handlers.response.failed({
           res,
           message: "Only mechanics can send product request"
         });
+      }
 
-      if (!user.shopOwnerId)
+      // Mechanic must belong to a shop owner
+      if (!shopOwnerId) {
         return handlers.response.failed({
           res,
           message: "You do not belong to any shop owner"
         });
+      }
 
+      // Check for existing pending product request
       const pendingProductRequest = await this.request.findOne({
-        senderId: user._id,
-        receiverId: user.shopOwnerId,
+        senderId: userId,
+        receiverId: shopOwnerId,
         type: "product",
         status: "pending"
       });
 
-      if (pendingProductRequest)
+      if (pendingProductRequest) {
         return handlers.response.failed({
           res,
           message: "A product request is already pending"
         });
+      }
 
+      // Create new product request
       const newProductRequest = await this.request.create({
-        senderId: user._id,
-        receiverId: user.shopOwnerId,
+        senderId: userId,
+        receiverId: shopOwnerId,
         type: "product",
-        productName: productName,
-        quantityNeeded: quantityNeeded,
-        justification: justification
+        productName,
+        quantityNeeded,
+        justification
       });
 
-      await this.notification.create({
-        senderId: user._id,
-        receiverId: user.shopOwnerId,
+      // Create new notification
+      const newNotification = await this.notification.create({
+        senderId: userId,
+        receiverId: shopOwnerId,
         message: `${firstName} ${lastName} has requested a product`,
         type: "Request",
         modelId: newProductRequest._id
       });
 
+      await newNotification.populate(notificationSchema.populate);
+      const {
+        senderId,
+        receiverId,
+        message,
+        type,
+        _id: modelId
+      } = newNotification;
+
+      // Send push notification if deviceToken exists
+      if (receiverId.deviceToken) {
+        const notificationPayload = {
+          deviceToken: receiverId.deviceToken,
+          title: "New notification",
+          body: message,
+          data: {
+            senderImage: senderId.image?.toString() || "",
+            senderName: `${senderId.firstName} ${senderId.lastName}`,
+            receiverImage: receiverId.image?.toString() || "",
+            receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
+            modelId: modelId.toString(),
+            type: type || "",
+            message: message || ""
+          }
+        };
+
+        await sendPushNotification(notificationPayload);
+      }
+
+      // Respond with success
       return handlers.response.success({
         res,
         message: "Success",

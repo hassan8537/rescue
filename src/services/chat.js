@@ -2,6 +2,7 @@ const Chat = require("../models/Chat");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
 const chatSchema = require("../schemas/chat");
+const notificationSchema = require("../schemas/notification");
 const handlers = require("../utilities/handlers");
 const sendPushNotification = require("../utilities/send-push-notification");
 
@@ -111,6 +112,7 @@ class Service {
     try {
       const { senderId, receiverId, text } = data;
 
+      // Validate sender and receiver
       const [sender, receiver] = await Promise.all([
         this.user.findById(senderId),
         this.user.findById(receiverId)
@@ -130,56 +132,56 @@ class Service {
         });
       }
 
-      const newChat = new this.chat({
+      // Create and populate the chat
+      const newChat = await this.chat.create({
         senderId: sender._id,
         receiverId: receiver._id,
         text
       });
-
-      await newChat.save();
       await newChat.populate(chatSchema.populate);
 
-      const {
-        firstName: senderFirstName,
-        lastName: senderLastName,
-        image: senderImage
-      } = sender;
-
-      const {
-        firstName: receiverFirstName,
-        lastName: receiverLastName,
-        image: receiverImage
-      } = receiver;
-
-      const fullSenderName = `${senderFirstName} ${senderLastName}`;
-
-      await this.notification.create({
-        senderId: senderId,
-        receiverId: receiverId,
+      // Create notification
+      const fullSenderName = `${sender.firstName} ${sender.lastName}`;
+      const newNotification = await this.notification.create({
+        senderId: sender._id,
+        receiverId: receiver._id,
         message: `${fullSenderName} has sent you a message`,
         type: "Chat",
         modelId: newChat._id
       });
 
-      const payload = {
-        deviceToken: receiver.deviceToken,
-        title: "One new message",
-        body: `${fullSenderName} has sent you a message`,
-        data: JSON.stringify({
-          sender: JSON.stringify({
-            image: senderImage?.toString() || "",
-            name: fullSenderName
-          }),
-          receiver: JSON.stringify({
-            image: receiverImage?.toString() || "",
-            name: `${receiverFirstName} ${receiverLastName}`
-          }),
-          text: text.toString()
-        })
-      };
+      // Populate the notification for push
+      await newNotification.populate(notificationSchema.populate);
+      const {
+        senderId: notifSender,
+        receiverId: notifReceiver,
+        message,
+        type,
+        _id: modelId
+      } = newNotification;
 
-      // await sendPushNotification(payload);
+      // Send push notification if receiver has deviceToken
+      if (notifReceiver.deviceToken) {
+        const notificationPayload = {
+          deviceToken: notifReceiver.deviceToken,
+          title: "New Message",
+          body: message,
+          data: {
+            senderImage: notifSender.image?.toString() || "",
+            senderName: `${notifSender.firstName} ${notifSender.lastName}`,
+            receiverImage: notifReceiver.image?.toString() || "",
+            receiverName: `${notifReceiver.firstName} ${notifReceiver.lastName}`,
+            modelId: modelId.toString(),
+            type: type || "",
+            message: message || "",
+            text: text.toString()
+          }
+        };
 
+        await sendPushNotification(notificationPayload);
+      }
+
+      // Respond success
       return handlers.event.success({
         objectType: "newChat",
         message: "New chat created successfully",

@@ -16,7 +16,7 @@ async function sendPushNotification(payload) {
         title,
         body
       },
-      data: { ...data } // Optional: extra data for client-side handling
+      data: { ...data }
     };
 
     const response = await admin.messaging().send(message);

@@ -4,8 +4,10 @@ const Quote = require("../models/Quote");
 const User = require("../models/User");
 const bookingSchema = require("../schemas/booking");
 const quoteSchema = require("../schemas/quote");
+const notificationSchema = require("../schemas/notification");
 const handlers = require("../utilities/handlers");
 const pagination = require("../utilities/pagination");
+const sendPushNotification = require("../utilities/send-push-notification");
 
 class Service {
   constructor(io) {
@@ -329,6 +331,26 @@ class Service {
       const newQuote = await this.quote.create(payload);
 
       await newQuote.populate(quoteSchema.populate);
+
+      const { firstName, lastName } = mechanic;
+      const fullSenderName = `${firstName} ${lastName}`;
+
+      await this.notification.create({
+        senderId: mechanic._id,
+        receiverId: driver._id,
+        message: `${fullSenderName} has sent a quote`,
+        type: "Quote",
+        modelId: newQuote._id
+      });
+
+      const notificationPayload = {
+        deviceToken: driver.deviceToken,
+        title: "New notification",
+        body: `${fullSenderName} has sent a quote`,
+        data: JSON.stringify(newQuote)
+      };
+
+      await sendPushNotification(notificationPayload);
 
       socket.join(driver._id.toString());
       this.io.to(driver._id.toString()).emit(
