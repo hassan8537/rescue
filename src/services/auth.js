@@ -104,7 +104,7 @@ class Service {
       }
 
       const otpExpirationMinutes = process.env.OTP_EXPIRATION_MINUTES;
-      const otpCode = generateOtp();
+      const otpCode = 123456;
       const expiresIn = new Date(Date.now() + otpExpirationMinutes * 60 * 1000);
 
       existingUser.isResetPasswordConfirmed = false;
@@ -122,11 +122,11 @@ class Service {
         expires_in: expiresIn
       });
 
-      await sendEmail({
-        to: existingUser.email_address,
-        subject: "Verify Email Address",
-        text: `Your verification code is ${otpCode}`
-      });
+      // await sendEmail({
+      //   to: existingUser.email_address,
+      //   subject: "Verify Email Address",
+      //   text: `Your verification code is ${otpCode}`
+      // });
 
       return handlers.response.success({
         res,

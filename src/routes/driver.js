@@ -20,6 +20,8 @@ router.post(
 
 router.get("/", controller.getDrivers.bind(controller));
 
+router.get("/:driverId", controller.getDriverById.bind(controller));
+
 router.delete("/:driverId", controller.deleteDriver.bind(controller));
 
 router.post(

@@ -19,6 +19,10 @@ class Controller {
     await this.service.getDrivers(req, res);
   }
 
+  async getDriverById(req, res) {
+    await this.service.getDriverById(req, res);
+  }
+
   async deleteDriver(req, res) {
     await this.service.deleteDriver(req, res);
   }

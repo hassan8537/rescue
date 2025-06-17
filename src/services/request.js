@@ -91,7 +91,7 @@ class Service {
 
       return await pagination({
         res,
-        table: "Requests",
+        table: "Budget requests",
         model: this.request,
         filters: filters,
         page,
@@ -148,7 +148,7 @@ class Service {
           message: "You cannot approve budget request of this driver"
         });
 
-      driver.driverBudget += Number(request.amount);
+      driver.budget += Number(request.amount);
       await driver.save();
 
       request.status = "approved";
@@ -206,6 +206,98 @@ class Service {
       return handlers.response.success({
         res,
         message: "Success"
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
+  async sendProductRequest(req, res) {
+    try {
+      const user = req.user;
+
+      const { firstName, lastName } = user;
+
+      const { productName, quantityNeeded, justification } = req.body;
+
+      if (user.role !== "mechanic")
+        return handlers.response.failed({
+          res,
+          message: "Only mechanics can send product request"
+        });
+
+      if (!user.shopOwnerId)
+        return handlers.response.failed({
+          res,
+          message: "You do not belong to any shop owner"
+        });
+
+      const pendingProductRequest = await this.request.findOne({
+        senderId: user._id,
+        receiverId: user.shopOwnerId,
+        type: "product",
+        status: "pending"
+      });
+
+      if (pendingProductRequest)
+        return handlers.response.failed({
+          res,
+          message: "A product request is already pending"
+        });
+
+      const newProductRequest = await this.request.create({
+        senderId: user._id,
+        receiverId: user.shopOwnerId,
+        type: "product",
+        productName: productName,
+        quantityNeeded: quantityNeeded,
+        justification: justification
+      });
+
+      await this.notification.create({
+        senderId: user._id,
+        receiverId: user.shopOwnerId,
+        message: `${firstName} ${lastName} has requested a product`,
+        type: "Request",
+        modelId: newProductRequest._id
+      });
+
+      return handlers.response.success({
+        res,
+        message: "Success",
+        data: newProductRequest
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error });
+    }
+  }
+
+  async getProductRequests(req, res) {
+    try {
+      const user = req.user;
+      const { page, limit } = req.query;
+
+      const filters = { type: "product" };
+
+      if (user.role === "shop-owner") {
+        filters.receiverId = user._id;
+      } else if (user.role === "mechanic") {
+        filters.senderId = user._id;
+      } else {
+        return handlers.response.failed({
+          res,
+          message: `Only ${user.role}s can view product requests`
+        });
+      }
+
+      return await pagination({
+        res,
+        table: "Product requests",
+        model: this.request,
+        filters: filters,
+        page,
+        limit,
+        populate: requestSchema.populate
       });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });

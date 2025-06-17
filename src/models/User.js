@@ -19,7 +19,6 @@ const schema = new Schema(
     email: { type: String, trim: true, default: "" },
     phoneNumber: { type: String, trim: true, default: "" },
     rememberMe: { type: Boolean, trim: true, default: false },
-    hourlyRates: { type: Number, trim: true, default: 0 },
 
     password: { type: String, trim: true, default: "" },
     role: {
@@ -76,7 +75,10 @@ const schema = new Schema(
     vehiclePlateNumber: { type: String, trim: true, default: null },
     assignVin: { type: String, default: null },
     drivingLicense: { type: String, trim: true, default: null },
-    driverBudget: { type: Number, default: 0 },
+    budget: { type: Number, default: 0 },
+
+    mechanicCertification: { type: String, trim: true, default: null },
+    hourlyRates: { type: Number, default: 0 },
 
     socketId: { type: String, default: "" }
   },

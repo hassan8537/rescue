@@ -93,7 +93,7 @@ class Service {
         drivingLicense,
         role: "driver",
         fleetManagerId: fleetId,
-        driverBudget: 150
+        budget: 150
       });
 
       await newDriver.save();
@@ -212,6 +212,13 @@ class Service {
 
   async getDrivers(req, res) {
     try {
+      if (req.user.role !== "fleet-manager") {
+        return handlers.response.unauthorized({
+          res,
+          message: "Only fleet managers can view drivers"
+        });
+      }
+
       const { page = 1, limit = 10, search = "", ...filters } = req.query;
 
       const searchFilter = search
@@ -258,6 +265,43 @@ class Service {
     }
   }
 
+  async getDriverById(req, res) {
+    try {
+      const driverId = req.params.driverId;
+
+      if (req.user.role !== "fleet-manager") {
+        return handlers.response.unauthorized({
+          res,
+          message: "Only fleet accounts can view drivers"
+        });
+      }
+
+      const driver = await this.user.findOne({
+        _id: driverId,
+        fleetManagerId: req.user._id,
+        role: "driver"
+      });
+
+      if (!driver) {
+        return handlers.response.failed({
+          res,
+          message: "Driver not found or does not belong to your fleet"
+        });
+      }
+
+      return handlers.response.success({
+        res,
+        message: "Driver fetched successfully",
+        data: driver
+      });
+    } catch (error) {
+      return handlers.response.error({
+        res,
+        message: error
+      });
+    }
+  }
+
   async allocateBudget(req, res) {
     try {
       const { budget } = req.body;
@@ -283,7 +327,7 @@ class Service {
         });
       }
 
-      driver.driverBudget += Number(budget);
+      driver.budget += Number(budget);
 
       await driver.save();
 

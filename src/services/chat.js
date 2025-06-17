@@ -1,12 +1,15 @@
 const Chat = require("../models/Chat");
+const Notification = require("../models/Notification");
 const User = require("../models/User");
 const chatSchema = require("../schemas/chat");
 const handlers = require("../utilities/handlers");
+const sendPushNotification = require("../utilities/send-push-notification");
 
 class Service {
   constructor() {
     this.chat = Chat;
     this.user = User;
+    this.notification = Notification;
   }
 
   async getInbox(req, res) {
@@ -135,6 +138,47 @@ class Service {
 
       await newChat.save();
       await newChat.populate(chatSchema.populate);
+
+      const {
+        firstName: senderFirstName,
+        lastName: senderLastName,
+        image: senderImage
+      } = sender;
+
+      const {
+        firstName: receiverFirstName,
+        lastName: receiverLastName,
+        image: receiverImage
+      } = receiver;
+
+      const fullSenderName = `${senderFirstName} ${senderLastName}`;
+
+      await this.notification.create({
+        senderId: senderId,
+        receiverId: receiverId,
+        message: `${fullSenderName} has sent you a message`,
+        type: "Chat",
+        modelId: newChat._id
+      });
+
+      const payload = {
+        deviceToken: receiver.deviceToken,
+        title: "One new message",
+        body: `${fullSenderName} has sent you a message`,
+        data: JSON.stringify({
+          sender: JSON.stringify({
+            image: senderImage?.toString() || "",
+            name: fullSenderName
+          }),
+          receiver: JSON.stringify({
+            image: receiverImage?.toString() || "",
+            name: `${receiverFirstName} ${receiverLastName}`
+          }),
+          text: text.toString()
+        })
+      };
+
+      // await sendPushNotification(payload);
 
       return handlers.event.success({
         objectType: "newChat",

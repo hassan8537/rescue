@@ -27,6 +27,20 @@ const schema = new Schema(
       type: Number,
       default: 0
     },
+    productName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    quantityNeeded: {
+      type: Number,
+      default: 0
+    },
+    justification: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

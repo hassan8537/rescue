@@ -103,12 +103,15 @@ io.on("connection", async (socket) => {
   socket.on("new-chat", async ({ senderId, receiverId, text }) => {
     try {
       const newChat = await chatController.newChat({
-        sender_id: senderId,
-        receiver_id: receiverId,
+        senderId: senderId,
+        receiverId: receiverId,
         text
       });
 
-      return socket.emit("response", newChat);
+      console.log({ newChat });
+
+      socket.emit("response", newChat);
+      return io.to(receiverId.toString()).emit("response", newChat);
     } catch (error) {
       handlers.logger.error({ message: error });
       return socket.emit(
@@ -124,8 +127,8 @@ io.on("connection", async (socket) => {
   socket.on("get-chats", async ({ senderId, receiverId }) => {
     try {
       const chats = await chatController.getChats({
-        sender_id: senderId,
-        receiver_id: receiverId
+        senderId: senderId,
+        receiverId: receiverId
       });
 
       handlers.logger.success({ message: "Messages", data: chats });

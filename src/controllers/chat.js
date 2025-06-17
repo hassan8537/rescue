@@ -4,15 +4,15 @@ class Controller {
   }
 
   async getInbox(req, res) {
-    await this.service.getInbox(req, res);
+    return await this.service.getInbox(req, res);
   }
 
   async newChat(data) {
-    await this.service.newChat(data);
+    return await this.service.newChat(data);
   }
 
   async getChats(data) {
-    await this.service.getChats(data);
+    return await this.service.getChats(data);
   }
 }
 
