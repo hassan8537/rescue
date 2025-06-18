@@ -1,7 +1,7 @@
 const requestSchema = {
   populate: [
     {
-      path: "senderId receiverId"
+      path: "senderId receiverId products"
     }
   ]
 };

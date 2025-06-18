@@ -27,11 +27,13 @@ const schema = new Schema(
       type: Number,
       default: 0
     },
-    productName: {
-      type: String,
-      trim: true,
-      default: ""
-    },
+    products: [
+      {
+        type: Schema.Types.ObjectId,
+        trim: true,
+        default: null
+      }
+    ],
     quantityNeeded: {
       type: Number,
       default: 0

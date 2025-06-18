@@ -321,7 +321,7 @@ class Service {
     try {
       const user = req.user;
       const { firstName, lastName, role, shopOwnerId, _id: userId } = user;
-      const { productName, quantityNeeded, justification } = req.body;
+      const { products, quantityNeeded, justification } = req.body;
 
       // Only mechanics can send product requests
       if (role !== "mechanic") {
@@ -359,7 +359,7 @@ class Service {
         senderId: userId,
         receiverId: shopOwnerId,
         type: "product",
-        productName,
+        products: products,
         quantityNeeded,
         justification
       });
