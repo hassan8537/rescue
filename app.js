@@ -84,8 +84,7 @@ app.use(userRoutes);
 // socket
 const io = new Server(server, {
   cors: {
-    origin:
-      nodeEnv === "production" ? process.env.ALLOWED_ORIGINS.split(",") : "*",
+    origin: "*",
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: nodeEnv === "production",
     transports: ["websocket", "polling"],
