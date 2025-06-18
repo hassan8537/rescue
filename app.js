@@ -99,6 +99,27 @@ io.on("connection", async (socket) => {
   handlers.logger.success({ message: `New socket connected: ${socket.id}` });
 
   // chat sockets
+  socket.on("get-inbox", async ({ userId, page, limit }) => {
+    try {
+      const inbox = await chatController.getInbox({
+        userId,
+        page,
+        limit
+      });
+
+      socket.emit("response", inbox);
+    } catch (error) {
+      handlers.logger.error({ message: error });
+      return socket.emit(
+        "error",
+        handlers.event.error({
+          objectType: "error",
+          message: "Failed to fetch inbox"
+        })
+      );
+    }
+  });
+
   socket.on("new-chat", async ({ senderId, receiverId, text }) => {
     try {
       const newChat = await chatController.newChat({

@@ -13,17 +13,14 @@ class Service {
     this.notification = Notification;
   }
 
-  async getInbox(req, res) {
+  async getInbox(data) {
     try {
-      const { page = 1, limit = 10 } = req.query;
-
-      const userId = req.user._id;
+      const { userId, page = 1, limit = 10 } = data;
 
       const user = await this.user.findById(userId);
       if (!user) {
-        handlers.logger.unavailable({ message: "User not found" });
-        return handlers.response.unavailable({
-          res,
+        return handlers.event.unavailable({
+          objectType: "inbox",
           message: "User not found"
         });
       }
@@ -86,13 +83,8 @@ class Service {
       const currentPage = parseInt(page);
       const pageSize = parseInt(limit);
 
-      handlers.logger.success({
-        message: "Inbox retrieved successfully",
-        data: inbox[0].data
-      });
-
-      return handlers.response.success({
-        res,
+      return handlers.event.success({
+        objectType: "inbox",
         message: "Inbox retrieved successfully",
         data: {
           results: inbox[0].data,
@@ -103,8 +95,10 @@ class Service {
         }
       });
     } catch (error) {
-      handlers.logger.error({ message: error });
-      return handlers.response.error({ res, message: error.message });
+      return handlers.event.error({
+        objectType: "inbox",
+        message: error.message
+      });
     }
   }
 
