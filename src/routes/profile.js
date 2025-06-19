@@ -6,7 +6,8 @@ const upload = require("../middlewares/multer");
 const uploadFields = upload.fields([
   { name: "image", maxCount: 1 },
   { name: "drivingLicense", maxCount: 1 },
-  { name: "businessLogo", maxCount: 1 }
+  { name: "businessLogo", maxCount: 1 },
+  { name: "mechanicCertification", maxCount: 1 }
 ]);
 
 router.post(
