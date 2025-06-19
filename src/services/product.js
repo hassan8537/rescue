@@ -170,11 +170,17 @@ class ProductService {
 
   async getProducts(req, res) {
     try {
-      const userId = req.query.userId;
+      const user = req.user;
 
       const filters = {};
 
-      filters.userId = userId;
+      if (user.role === "shop-owner") {
+        filters.userId = user._id;
+      }
+
+      if (user.role === "mechanic") {
+        filters.userId = user.shopOwnerId;
+      }
 
       return await pagination({
         res,
