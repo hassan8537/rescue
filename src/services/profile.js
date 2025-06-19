@@ -37,6 +37,7 @@ class UserService {
       const image = req.files?.["image"]?.[0];
       const drivingLicense = req.files?.["drivingLicense"]?.[0];
       const businessLogo = req.files?.["businessLogo"]?.[0];
+      const mechanicCertification = req.files?.["mechanicCertification"]?.[0];
 
       const appRoles = ["mechanic", "driver"];
       const webRoles = ["fleet-manager", "shop-owner"];
@@ -51,7 +52,10 @@ class UserService {
         ...(req.body.firstName && { firstName: req.body.firstName }),
         ...(req.body.lastName && { lastName: req.body.lastName }),
         ...(req.body.phoneNumber && { phoneNumber: req.body.phoneNumber }),
-        ...(drivingLicense && { drivingLicense: drivingLicense.path })
+        ...(drivingLicense && { drivingLicense: drivingLicense.path }),
+        ...(mechanicCertification && {
+          mechanicCertification: mechanicCertification.path
+        })
       };
 
       const webPayload = {
@@ -117,6 +121,7 @@ class UserService {
       const image = req.files?.["image"]?.[0];
       const drivingLicense = req.files?.["drivingLicense"]?.[0];
       const businessLogo = req.files?.["businessLogo"]?.[0];
+      const mechanicCertification = req.files?.["mechanicCertification"]?.[0];
 
       const appRoles = ["mechanic", "driver"];
       const webRoles = ["fleet-manager", "shop-owner"];
@@ -131,7 +136,10 @@ class UserService {
         ...(req.body.firstName && { firstName: req.body.firstName }),
         ...(req.body.lastName && { lastName: req.body.lastName }),
         ...(req.body.phoneNumber && { phoneNumber: req.body.phoneNumber }),
-        ...(drivingLicense && { drivingLicense: drivingLicense.path })
+        ...(drivingLicense && { drivingLicense: drivingLicense.path }),
+        ...(mechanicCertification && {
+          mechanicCertification: mechanicCertification.path
+        })
       };
 
       const webPayload = {
