@@ -209,6 +209,17 @@ io.on("connection", async (socket) => {
       driverId
     });
   });
+
+  socket.on(
+    "update-mechanic-location",
+    async ({ userId, jobId, mechanicCurrentLocation }) => {
+      await bookingService.updateMechanicCurrentLocation(socket, {
+        userId,
+        jobId,
+        mechanicCurrentLocation
+      });
+    }
+  );
 });
 
 // server

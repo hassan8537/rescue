@@ -626,6 +626,89 @@ class Service {
       });
     }
   }
+
+  async updateMechanicCurrentLocation(socket, data) {
+    const objectType = "update-mechanic-current-location";
+    try {
+      console.log("[updateMechanicCurrentLocation] Invoked with:", data);
+
+      const { userId, jobId, mechanicCurrentLocation } = data;
+
+      const job = await this.booking
+        .findById(jobId)
+        .populate(bookingSchema.populate);
+
+      if (!job) {
+        socket.join(userId.toString());
+        return this.io
+          .to(userId.toString())
+          .emit(
+            "response",
+            handlers.event.failed({ objectType, message: "Invalid job ID" })
+          );
+      }
+
+      const mechanic = await this.user.findById(job.mechanicId);
+      if (!mechanic) {
+        socket.join(userId.toString());
+        return this.io.to(userId.toString()).emit(
+          "response",
+          handlers.event.failed({
+            objectType,
+            message: "Invalid mechanic ID"
+          })
+        );
+      }
+
+      // Update mechanic's location
+      mechanic.location = mechanicCurrentLocation;
+      await mechanic.save();
+
+      socket.join(userId.toString());
+      return this.io.to(userId.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Mechanic's location updated",
+          data: mechanicCurrentLocation
+        })
+      );
+    } catch (error) {
+      console.error("[updateMechanicCurrentLocation] Error:", error.message);
+      const roomId = data?.userId?.toString() || "unknown-room";
+      socket.join(roomId);
+      return this.io.to(roomId).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${error.message}`
+        })
+      );
+    }
+  }
+
+  async trackMechanic(socket, data) {
+    try {
+      const { userId, jobId } = data;
+
+      const job = await this.booking.findById(jobId);
+
+      const data = handlers.event.success({
+        objectType: "track-mechanic",
+        message: "Mechanic's location"
+      });
+    } catch (error) {
+      console.error("[trackMechanic] Error:", err.message);
+      socket.join(data?.driverId?.toString());
+      return this.io.to(data?.driverId?.toString()).emit(
+        "error",
+        handlers.event.error({
+          objectType: "track-mechanic",
+          message: `Unexpected error: ${err.message}`
+        })
+      );
+    }
+  }
 }
 
 module.exports = new Service();
