@@ -18,7 +18,12 @@ class Service {
   async getJobs(req, res) {
     try {
       const user = req.user;
-      const filters = { ...req.query };
+
+      const { page, limit, status } = req.query;
+
+      const filters = {};
+
+      if (status) filters.status = status;
 
       if (user.role === "driver") {
         filters.driverId = user._id;
@@ -48,13 +53,15 @@ class Service {
         filters.driverId = { $in: driverIds };
       }
 
+      console.log({ filters: JSON.stringify(filters) });
+
       return await pagination({
         res,
         table: "Jobs",
         model: this.booking,
         filters: filters,
-        page: req.query.page,
-        limit: req.query.limit,
+        page: page,
+        limit: limit,
         populate: bookingSchema.populate
       });
     } catch (error) {
