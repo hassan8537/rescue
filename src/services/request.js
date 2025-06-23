@@ -110,38 +110,6 @@ class Service {
     }
   }
 
-  async getBudgetRequests(req, res) {
-    try {
-      const user = req.user;
-      const { page, limit } = req.query;
-
-      const filters = { type: "budget" };
-
-      if (user.role === "fleet-manager") {
-        filters.receiverId = user._id;
-      } else if (user.role === "driver") {
-        filters.senderId = user._id;
-      } else {
-        return handlers.response.failed({
-          res,
-          message: `Only fleet managers or drivers can view budget requests`
-        });
-      }
-
-      return await pagination({
-        res,
-        table: "Budget requests",
-        model: this.request,
-        filters: filters,
-        page,
-        limit,
-        populate: requestSchema.populate
-      });
-    } catch (error) {
-      return handlers.response.error({ res, message: error.message });
-    }
-  }
-
   async approveBudgetRequest(req, res) {
     try {
       const user = req.user;
@@ -413,12 +381,48 @@ class Service {
     }
   }
 
+  async getBudgetRequests(req, res) {
+    try {
+      const user = req.user;
+      const { page, limit, status } = req.query;
+
+      const filters = { type: "budget" };
+
+      if (status) filters.status = status;
+
+      if (user.role === "fleet-manager") {
+        filters.receiverId = user._id;
+      } else if (user.role === "driver") {
+        filters.senderId = user._id;
+      } else {
+        return handlers.response.failed({
+          res,
+          message: `Only fleet managers or drivers can view budget requests`
+        });
+      }
+
+      return await pagination({
+        res,
+        table: "Budget requests",
+        model: this.request,
+        filters: filters,
+        page,
+        limit,
+        populate: requestSchema.populate
+      });
+    } catch (error) {
+      return handlers.response.error({ res, message: error.message });
+    }
+  }
+
   async getProductRequests(req, res) {
     try {
       const user = req.user;
-      const { page, limit } = req.query;
+      const { page, limit, status } = req.query;
 
       const filters = { type: "product" };
+
+      if (status) filters.status = status;
 
       if (user.role === "shop-owner") {
         filters.receiverId = user._id;
