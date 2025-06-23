@@ -124,7 +124,7 @@ class Service {
       } else {
         return handlers.response.failed({
           res,
-          message: `Only ${user.role}s can view budget requests`
+          message: `Only fleet managers or drivers can view budget requests`
         });
       }
 

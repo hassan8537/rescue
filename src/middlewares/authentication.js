@@ -31,7 +31,7 @@ const authentication = async (req, res, next) => {
     req.user = user;
     return next();
   } catch (error) {
-    return handlers.response.error({ message: error });
+    return handlers.response.error({ res, message: error });
   }
 };
 
