@@ -4,4 +4,6 @@ const controller = require("../controllers/notification");
 
 router.post("/toggle", controller.toggleNotifications.bind(controller));
 
+router.get("/", controller.getNotifications.bind(controller));
+
 module.exports = router;
