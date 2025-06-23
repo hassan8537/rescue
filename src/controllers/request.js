@@ -7,8 +7,16 @@ class Controller {
     await this.service.sendBudgetRequest(req, res);
   }
 
+  async sendProductRequest(req, res) {
+    await this.service.sendProductRequest(req, res);
+  }
+
   async getBudgetRequests(req, res) {
     await this.service.getBudgetRequests(req, res);
+  }
+
+  async getProductRequests(req, res) {
+    await this.service.getProductRequests(req, res);
   }
 
   async approveBudgetRequest(req, res) {
