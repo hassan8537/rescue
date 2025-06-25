@@ -1,5 +1,5 @@
 const Notification = require("../models/Notification");
-const Request = require("../models/request");
+const Request = require("../models/Request");
 const User = require("../models/User");
 const notificationSchema = require("../schemas/notification");
 const requestSchema = require("../schemas/request");
