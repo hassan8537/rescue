@@ -16,7 +16,7 @@ const schema = new Schema(
     },
     type: {
       type: String,
-      enum: ["budget", "product", "BudgetApproval"]
+      enum: ["budget", "product"]
     },
     reason: {
       type: String,

@@ -1,5 +1,5 @@
 const Notification = require("../models/Notification");
-const Request = require("../models/Request");
+const Request = require("../models/request");
 const User = require("../models/User");
 const notificationSchema = require("../schemas/notification");
 const requestSchema = require("../schemas/request");
@@ -116,80 +116,77 @@ class Service {
       const { requestId } = req.params;
 
       const request = await this.request.findById(requestId);
-      if (!request) {
+
+      if (!request)
         return handlers.response.failed({ res, message: "Invalid request ID" });
-      }
 
-      if (user.role !== "fleet-manager") {
+      if (user.role !== "fleet-manager")
         return handlers.response.failed({
           res,
-          message: "Only fleet managers can approve budget requests"
+          message: "Only fleet managers can approve budget request"
         });
-      }
 
-      if (request.receiverId.toString() !== user._id.toString()) {
+      if (request.receiverId.toString() !== user._id.toString())
         return handlers.response.failed({
           res,
-          message: "You are not authorized to approve this budget request"
+          message: "You cannot approve this budget request"
         });
-      }
 
-      if (request.status === "approved") {
+      if (request.status === "approved")
         return handlers.response.failed({
           res,
           message: "Budget request already approved"
         });
-      }
 
-      if (request.status === "rejected") {
+      if (request.status === "rejected")
         return handlers.response.failed({
           res,
           message: "Budget request already rejected"
         });
-      }
 
       const driver = await this.user.findById(request.senderId);
-      if (!driver) {
+
+      if (!driver)
         return handlers.response.failed({
           res,
-          message: "Driver not found"
+          message: "You cannot approve budget request of this driver"
         });
-      }
 
-      // Add budget to driver's account
-      driver.budget = (driver.budget || 0) + Number(request.amount || 0);
+      // Approve and update driver's budget
+      driver.budget += Number(request.amount);
       await driver.save();
 
       request.status = "approved";
       await request.save();
 
-      const notification = await this.notification.create({
+      // Create notification
+      const newNotification = await this.notification.create({
         senderId: user._id,
         receiverId: driver._id,
         message: `Your budget request has been approved by ${user.firstName} ${user.lastName}`,
-        type: "BudgetApproval",
+        type: "Request",
         modelId: request._id
       });
 
-      await notification.populate(notificationSchema.populate);
+      await newNotification.populate(notificationSchema.populate);
       const {
         senderId,
         receiverId,
         message,
         type,
         _id: modelId
-      } = notification;
+      } = newNotification;
 
-      if (receiverId?.deviceToken) {
+      if (receiverId.deviceToken) {
         const notificationPayload = {
           deviceToken: receiverId.deviceToken,
           title: "Budget Approved",
           body: message,
           data: {
-            senderImage: senderId?.image || "",
-            senderName: `${senderId?.firstName || ""} ${senderId?.lastName || ""}`,
-            receiverImage: receiverId?.image || "",
-            receiverName: `${receiverId?.firstName || ""} ${receiverId?.lastName || ""}`,
+            senderImage: senderId.image?.toString() || "",
+            senderName: `${senderId.firstName} ${senderId.lastName}`,
+            receiverImage: receiverId.image?.toString() || "",
+            receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
             modelId: modelId.toString(),
             type: type || "",
             message: message || ""
@@ -199,10 +196,7 @@ class Service {
         await sendPushNotification(notificationPayload);
       }
 
-      return handlers.response.success({
-        res,
-        message: "Budget approved successfully"
-      });
+      return handlers.response.success({ res, message: "Success" });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });
     }
