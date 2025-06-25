@@ -116,51 +116,54 @@ class Service {
       const { requestId } = req.params;
 
       const request = await this.request.findById(requestId);
-
-      if (!request)
+      if (!request) {
         return handlers.response.failed({ res, message: "Invalid request ID" });
+      }
 
-      if (user.role !== "fleet-manager")
+      if (user.role !== "fleet-manager") {
         return handlers.response.failed({
           res,
-          message: "Only fleet managers can approve budget request"
+          message: "Only fleet managers can approve budget requests"
         });
+      }
 
-      if (request.receiverId.toString() !== user._id.toString())
+      if (request.receiverId.toString() !== user._id.toString()) {
         return handlers.response.failed({
           res,
-          message: "You cannot approve this budget request"
+          message: "You are not authorized to approve this budget request"
         });
+      }
 
-      if (request.status === "approved")
+      if (request.status === "approved") {
         return handlers.response.failed({
           res,
           message: "Budget request already approved"
         });
+      }
 
-      if (request.status === "rejected")
+      if (request.status === "rejected") {
         return handlers.response.failed({
           res,
           message: "Budget request already rejected"
         });
+      }
 
       const driver = await this.user.findById(request.senderId);
-
-      if (!driver)
+      if (!driver) {
         return handlers.response.failed({
           res,
-          message: "You cannot approve budget request of this driver"
+          message: "Driver not found"
         });
+      }
 
-      // Approve and update driver's budget
-      driver.budget += Number(request.amount);
+      // Add budget to driver's account
+      driver.budget = (driver.budget || 0) + Number(request.amount || 0);
       await driver.save();
 
       request.status = "approved";
       await request.save();
 
-      // Create notification
-      const newNotification = await this.notification.create({
+      const notification = await this.notification.create({
         senderId: user._id,
         receiverId: driver._id,
         message: `Your budget request has been approved by ${user.firstName} ${user.lastName}`,
@@ -168,25 +171,25 @@ class Service {
         modelId: request._id
       });
 
-      await newNotification.populate(notificationSchema.populate);
+      await notification.populate(notificationSchema.populate);
       const {
         senderId,
         receiverId,
         message,
         type,
         _id: modelId
-      } = newNotification;
+      } = notification;
 
-      if (receiverId.deviceToken) {
+      if (receiverId?.deviceToken) {
         const notificationPayload = {
           deviceToken: receiverId.deviceToken,
           title: "Budget Approved",
           body: message,
           data: {
-            senderImage: senderId.image?.toString() || "",
-            senderName: `${senderId.firstName} ${senderId.lastName}`,
-            receiverImage: receiverId.image?.toString() || "",
-            receiverName: `${receiverId.firstName} ${receiverId.lastName}`,
+            senderImage: senderId?.image || "",
+            senderName: `${senderId?.firstName || ""} ${senderId?.lastName || ""}`,
+            receiverImage: receiverId?.image || "",
+            receiverName: `${receiverId?.firstName || ""} ${receiverId?.lastName || ""}`,
             modelId: modelId.toString(),
             type: type || "",
             message: message || ""
@@ -196,7 +199,10 @@ class Service {
         await sendPushNotification(notificationPayload);
       }
 
-      return handlers.response.success({ res, message: "Success" });
+      return handlers.response.success({
+        res,
+        message: "Budget approved successfully"
+      });
     } catch (error) {
       return handlers.response.error({ res, message: error.message });
     }

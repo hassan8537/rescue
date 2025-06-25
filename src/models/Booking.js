@@ -29,10 +29,13 @@ const schema = new Schema(
         index: "2dsphere"
       }
     },
-    productsRequired: {
-      type: [Schema.Types.ObjectId],
-      default: []
-    },
+    productsRequired: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Product",
+        default: null
+      }
+    ],
     issueDescription: {
       type: String,
       default: ""

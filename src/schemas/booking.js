@@ -1,7 +1,7 @@
 const bookingSchema = {
   populate: [
     {
-      path: "driverId mechanicId"
+      path: "driverId mechanicId productsRequired"
     }
   ]
 };
