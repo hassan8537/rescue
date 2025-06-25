@@ -16,7 +16,8 @@ const adminSeeder = async (req, res, next) => {
       phoneNumber: "+(1)555-555-5555",
       password: await bcrypt.hash("Admin@123", 10),
       role: "admin",
-      isVerified: true
+      isVerified: true,
+      isProfileCompleted: true
     });
 
     await adminUser.save();

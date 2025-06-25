@@ -3,6 +3,7 @@ const app = express();
 
 // 🔹 Import Routes
 const authRoutes = require("./auth");
+const adminRoutes = require("./admin");
 const uploadRoutes = require("./upload");
 const chatRoutes = require("./chat");
 const profileRoutes = require("./profile");
@@ -27,6 +28,7 @@ const middlewares = [authentication];
 app.use("/api/v1/auth", authRoutes);
 
 // Using middlewares 1
+app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/chats", middlewares, chatRoutes);
 app.use("/api/v1/uploads", middlewares, uploadRoutes);
 app.use("/api/v1/profiles", middlewares, profileRoutes);
