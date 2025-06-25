@@ -632,23 +632,9 @@ class Service {
     try {
       console.log("[updateMechanicCurrentLocation] Invoked with:", data);
 
-      const { userId, jobId, mechanicCurrentLocation } = data;
+      const { userId, mechanicCurrentLocation } = data;
 
-      const job = await this.booking
-        .findById(jobId)
-        .populate(bookingSchema.populate);
-
-      if (!job) {
-        socket.join(userId.toString());
-        return this.io
-          .to(userId.toString())
-          .emit(
-            "response",
-            handlers.event.failed({ objectType, message: "Invalid job ID" })
-          );
-      }
-
-      const mechanic = await this.user.findById(job.mechanicId);
+      const mechanic = await this.user.findById(userId);
       if (!mechanic) {
         socket.join(userId.toString());
         return this.io.to(userId.toString()).emit(
