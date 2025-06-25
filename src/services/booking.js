@@ -8,6 +8,7 @@ const notificationSchema = require("../schemas/notification");
 const handlers = require("../utilities/handlers");
 const pagination = require("../utilities/pagination");
 const sendPushNotification = require("../utilities/send-push-notification");
+const userSchema = require("../schemas/user");
 
 class Service {
   constructor(io) {
@@ -690,6 +691,49 @@ class Service {
         "error",
         handlers.event.error({
           objectType: "track-mechanic",
+          message: `Unexpected error: ${err.message}`
+        })
+      );
+    }
+  }
+
+  async getNearbyMechanics(socket, data) {
+    const { currentLocation, userId } = data;
+    const objectType = "nearby-mechanics";
+
+    try {
+      const mechanics = await this.user
+        .find({
+          role: "mechanic",
+          location: {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: currentLocation.coordinates
+              },
+              $maxDistance: process.env.MAX_DISTANCE
+            }
+          },
+          isActive: true
+        })
+        .populate(userSchema.populate);
+
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Mechanic's location updated",
+          data: mechanics
+        })
+      );
+    } catch (err) {
+      console.error("[getNearbyMechanics] Error:", err.message);
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "error",
+        handlers.event.error({
+          objectType,
           message: `Unexpected error: ${err.message}`
         })
       );

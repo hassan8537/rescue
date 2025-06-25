@@ -219,6 +219,13 @@ io.on("connection", async (socket) => {
       });
     }
   );
+
+  socket.on("get-nearby-mechanics", async ({ userId, currentLocation }) => {
+    await bookingService.getNearbyMechanics(socket, {
+      userId,
+      currentLocation
+    });
+  });
 });
 
 // server
