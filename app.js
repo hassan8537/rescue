@@ -226,6 +226,13 @@ io.on("connection", async (socket) => {
       currentLocation
     });
   });
+
+  socket.on("get-service-requests", async ({ userId, currentLocation }) => {
+    await bookingService.getServiceRequests(socket, {
+      userId,
+      currentLocation
+    });
+  });
 });
 
 // server

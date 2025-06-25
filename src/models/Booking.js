@@ -70,5 +70,7 @@ const schema = new Schema(
   { timestamps: true }
 );
 
+schema.index({ location: "2dsphere" });
+
 const Booking = model("Booking", schema);
 module.exports = Booking;

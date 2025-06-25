@@ -711,12 +711,23 @@ class Service {
                 type: "Point",
                 coordinates: currentLocation.coordinates
               },
-              $maxDistance: process.env.MAX_DISTANCE
+              $maxDistance: parseInt(process.env.MAX_DISTANCE) || 10000
             }
           },
           isActive: true
         })
         .populate(userSchema.populate);
+
+      if (!mechanics.length) {
+        socket.join(userId?.toString());
+        this.io.to(userId?.toString()).emit(
+          "response",
+          handlers.event.success({
+            objectType,
+            message: "No nearby mechanics yet"
+          })
+        );
+      }
 
       socket.join(userId?.toString());
       this.io.to(userId?.toString()).emit(
@@ -729,6 +740,48 @@ class Service {
       );
     } catch (err) {
       console.error("[getNearbyMechanics] Error:", err.message);
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${err.message}`
+        })
+      );
+    }
+  }
+
+  async getServiceRequests(socket, data) {
+    const { userId, currentLocation } = data;
+    const objectType = "service-requests";
+
+    try {
+      const requests = await this.booking
+        .find({
+          status: "pending",
+          location: {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: currentLocation.coordinates
+              },
+              $maxDistance: parseInt(process.env.MAX_DISTANCE) || 10000 // fallback 10km
+            }
+          }
+        })
+        .populate(bookingSchema.populate);
+
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Service requests",
+          data: requests
+        })
+      );
+    } catch (err) {
+      console.error("[getServiceRequests] Error:", err.message);
       socket.join(userId?.toString());
       this.io.to(userId?.toString()).emit(
         "error",
