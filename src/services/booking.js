@@ -792,6 +792,67 @@ class Service {
       );
     }
   }
+
+  async getMechanicQuotes(socket, data) {
+    const { userId, currentLocation } = data;
+    const objectType = "mechanic-quotes";
+
+    try {
+      if (!userId || !currentLocation?.coordinates?.length) {
+        return this.io.to(userId?.toString()).emit(
+          "error",
+          handlers.event.error({
+            objectType,
+            message: "Invalid userId or location"
+          })
+        );
+      }
+
+      // STEP 1: Get nearby mechanics within distance
+      const nearbyMechanics = await this.user
+        .find({
+          role: "mechanic",
+          location: {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: currentLocation.coordinates
+              },
+              $maxDistance: parseInt(process.env.MAX_DISTANCE) || 10000
+            }
+          },
+          isActive: true
+        })
+        .populate(userSchema.populate);
+
+      const mechanicIds = nearbyMechanics.map((m) => m._id);
+
+      // STEP 2: Fetch quotes from these nearby mechanics
+      const quotes = await this.quote
+        .find({ mechanicId: { $in: mechanicIds } })
+        .populate(quoteSchema.populate);
+
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "response",
+        handlers.event.success({
+          objectType,
+          message: "Quotes from nearby mechanics",
+          data: quotes
+        })
+      );
+    } catch (err) {
+      console.error("[getMechanicQuotes] Error:", err.message);
+      socket.join(userId?.toString());
+      this.io.to(userId?.toString()).emit(
+        "error",
+        handlers.event.error({
+          objectType,
+          message: `Unexpected error: ${err.message}`
+        })
+      );
+    }
+  }
 }
 
 module.exports = new Service();

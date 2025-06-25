@@ -233,6 +233,13 @@ io.on("connection", async (socket) => {
       currentLocation
     });
   });
+
+  socket.on("get-mechanic-quotes", async ({ userId, currentLocation }) => {
+    await bookingService.getMechanicQuotes(socket, {
+      userId,
+      currentLocation
+    });
+  });
 });
 
 // server
