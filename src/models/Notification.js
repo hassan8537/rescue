@@ -21,7 +21,7 @@ const schema = new Schema(
     },
     type: {
       type: String,
-      enum: ["Booking", "Chat", "Request"],
+      enum: ["Booking", "Chat", "Request", "Order"],
       trim: true,
       required: true
     },

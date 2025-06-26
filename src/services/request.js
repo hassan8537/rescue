@@ -1,4 +1,6 @@
 const Notification = require("../models/Notification");
+const Order = require("../models/Order");
+const Product = require("../models/Product");
 const Request = require("../models/Request");
 const User = require("../models/User");
 const notificationSchema = require("../schemas/notification");
@@ -12,6 +14,8 @@ class Service {
     this.user = User;
     this.request = Request;
     this.notification = Notification;
+    this.order = Order;
+    this.product = Product;
   }
 
   async sendBudgetRequest(req, res) {
@@ -330,6 +334,21 @@ class Service {
         products: products,
         quantityNeeded,
         justification
+      });
+
+      let totalAmount = 0;
+
+      for (const item of products) {
+        const product = await this.product.findById(item);
+        if (!product) continue;
+        totalAmount += product.price * quantityNeeded;
+      }
+
+      // Create new order
+      const newOrder = await this.order.create({
+        customerId: user._id,
+        products: products,
+        totalAmount: totalAmount
       });
 
       // Create new notification

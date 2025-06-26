@@ -93,7 +93,9 @@ const io = new Server(server, {
 });
 
 const bookingService = require("./src/services/booking");
+const orderService = require("./src/services/order");
 bookingService.io = io;
+orderService.io = io;
 
 io.on("connection", async (socket) => {
   handlers.logger.success({ message: `New socket connected: ${socket.id}` });
@@ -239,6 +241,10 @@ io.on("connection", async (socket) => {
       userId,
       currentLocation
     });
+  });
+
+  socket.on("mark-order-ready", async ({ orderId, userId }) => {
+    await orderService.markOrderReady(socket, { orderId, userId });
   });
 });
 
