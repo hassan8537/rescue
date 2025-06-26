@@ -17,6 +17,7 @@ const notificationRoutes = require("./notification");
 const requestRoutes = require("./request");
 const reviewRoutes = require("./review");
 const jobRoutes = require("./job");
+const orderRoutes = require("./order");
 
 // 🔹 Import Middlewares
 const authentication = require("../middlewares/authentication");
@@ -42,5 +43,6 @@ app.use("/api/v1/notifications", middlewares, notificationRoutes);
 app.use("/api/v1/requests", middlewares, requestRoutes);
 app.use("/api/v1/reviews", middlewares, reviewRoutes);
 app.use("/api/v1/jobs", middlewares, jobRoutes);
+app.use("/api/v1/orders", middlewares, orderRoutes);
 
 module.exports = app;
