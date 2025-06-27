@@ -206,13 +206,6 @@ class Service {
           })
         );
 
-        // 🔄 Trigger live refresh for mechanic's service request list
-        socket.join(mechanicRoom);
-        this.io.to(mechanicRoom).emit("get-service-requests", {
-          userId: driver._id,
-          currentLocation: driver.location
-        });
-
         // Create notification
         if (mechanic.deviceToken) {
           const driverName = `${driver.firstName} ${driver.lastName}`;
@@ -232,6 +225,7 @@ class Service {
           const current = await this.booking.findById(bookingId);
           if (current?.status === "pending") {
             await this.booking.findByIdAndDelete(bookingId);
+            await this.quote.findOneAndDelete({ bookingId: bookingId });
             console.log(
               "[sendBookingRequestToMechanics] Booking expired:",
               bookingId
