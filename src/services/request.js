@@ -1,3 +1,4 @@
+const Account = require("../models/Account");
 const Notification = require("../models/Notification");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
@@ -5,6 +6,7 @@ const Request = require("../models/Request");
 const User = require("../models/User");
 const notificationSchema = require("../schemas/notification");
 const requestSchema = require("../schemas/request");
+const { directChargeCard } = require("../utilities/charge-card");
 const handlers = require("../utilities/handlers");
 const pagination = require("../utilities/pagination");
 const sendPushNotification = require("../utilities/send-push-notification");
@@ -16,6 +18,7 @@ class Service {
     this.notification = Notification;
     this.order = Order;
     this.product = Product;
+    this.account = Account;
   }
 
   async sendBudgetRequest(req, res) {
@@ -162,6 +165,20 @@ class Service {
 
       request.status = "approved";
       await request.save();
+
+      const account = await this.account.findOne({ userId: user._id });
+
+      const chargeCard = await directChargeCard({
+        amount: request.amount,
+        currency: "USD",
+        source: account.stripeCardToken,
+        description: request.justification
+      });
+
+      handlers.logger.success({
+        message: chargeCard.message,
+        data: chargeCard.data
+      });
 
       // Create notification
       const newNotification = await this.notification.create({

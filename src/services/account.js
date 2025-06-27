@@ -50,7 +50,8 @@ class Service {
 
       await this.account.create({
         userId: user._id,
-        stripeCardId: card.id
+        stripeCardId: card.id,
+        stripeCardToken: stripeCardToken
       });
 
       return handlers.response.success({

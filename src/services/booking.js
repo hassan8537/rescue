@@ -123,8 +123,8 @@ class Service {
     try {
       const { bookingId, driverId } = data;
       const radius = Number(process.env.RADIUS);
+      const maxDistance = radius * 1609.34; // convert miles to meters
       const objectType = "booking-request";
-      const maxDistance = radius * 1609.34;
 
       console.log("[sendBookingRequestToMechanics] Data received:", data);
 
@@ -168,8 +168,16 @@ class Service {
 
       const mechanics = await this.user.find({
         role: "mechanic",
-        isActive: true
-        // optional location filtering
+        isActive: true,
+        location: {
+          $near: {
+            $geometry: {
+              type: "Point",
+              coordinates: booking.location.coordinates // <== use booking's location
+            },
+            $maxDistance: maxDistance // in meters
+          }
+        }
       });
 
       if (!mechanics.length) {
@@ -184,8 +192,12 @@ class Service {
       }
 
       for (const mechanic of mechanics) {
-        socket.join(mechanic._id.toString());
-        this.io.to(mechanic._id.toString()).emit(
+        const mechanicRoom = mechanic._id.toString();
+
+        socket.join(mechanicRoom);
+
+        // Send booking info
+        this.io.to(mechanicRoom).emit(
           "response",
           handlers.event.success({
             objectType,
@@ -194,6 +206,14 @@ class Service {
           })
         );
 
+        // 🔄 Trigger live refresh for mechanic's service request list
+        socket.join(mechanicRoom);
+        this.io.to(mechanicRoom).emit("get-service-requests", {
+          userId: driver._id,
+          currentLocation: driver.location
+        });
+
+        // Create notification
         if (mechanic.deviceToken) {
           const driverName = `${driver.firstName} ${driver.lastName}`;
           await this.notification.create({
@@ -206,6 +226,7 @@ class Service {
         }
       }
 
+      // Set timeout for auto-expiring the booking
       const timeout = setTimeout(async () => {
         try {
           const current = await this.booking.findById(bookingId);
@@ -231,7 +252,7 @@ class Service {
             err.message
           );
           socket.join(driverId.toString());
-          return this.io.to(driverId.toString()).emit(
+          this.io.to(driverId.toString()).emit(
             "response",
             handlers.event.error({
               message: `Timeout error: ${err.message}`

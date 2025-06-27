@@ -7,6 +7,10 @@ const schema = new Schema(
       ref: "User",
       required: true
     },
+    stripeCardToken: {
+      type: String,
+      required: true
+    },
     stripeCardId: {
       type: String,
       required: true
