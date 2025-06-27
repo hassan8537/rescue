@@ -225,7 +225,7 @@ class Service {
           const current = await this.booking.findById(bookingId);
           if (current?.status === "pending") {
             await this.booking.findByIdAndDelete(bookingId);
-            await this.quote.findOneAndDelete({ bookingId: bookingId });
+            await this.quote.deleteMany({ bookingId: bookingId });
             console.log(
               "[sendBookingRequestToMechanics] Booking expired:",
               bookingId
@@ -245,6 +245,7 @@ class Service {
             "[sendBookingRequestToMechanics] Timeout error:",
             err.message
           );
+          await this.quote.deleteMany({ bookingId: bookingId });
           socket.join(driverId.toString());
           this.io.to(driverId.toString()).emit(
             "response",
